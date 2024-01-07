@@ -1,0 +1,13 @@
+---
+title: "final essay UKDA basic info"
+format: html
+editor: visual
+---
+
+```{r}
+
+setwd("D:\\r git projects\\kin-safety-net-strat\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+
+ukda_indi1<-read.table("a_indresp.tab",header=T)
+
+```
