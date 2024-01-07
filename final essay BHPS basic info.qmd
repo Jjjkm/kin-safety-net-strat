@@ -1,0 +1,35 @@
+---
+title: "final essay BHPS basic info"
+format: html
+editor: visual
+---
+
+```{r}
+
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\bhps")
+
+
+bhps_indi1<-read.table("ba_indresp.tab",header = T)
+
+
+bhps_indi2<-read.table("bb_indresp.tab",header = T)
+
+
+#Pos. = 100	Variable = bb_qfk	Variable label = Qualifications: university diploma  
+# Pos. = 251-261	Variable = bb_aidhh	Variable label = Cares for handicapped/other in household
+
+
+```
+
+```{r}
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\bhps")
+bhps_ego1<-read.table("ba_egoalt.tab",header=T,fill = T)
+```
+
+## ![](images/d536d4cb8bf8bfa0a2d43d86200b38f.png)![](images/7344d1f8fd3bb99ea30de460d32e892.png)
+
+![](images/a916d6514ae8b2d52f7a1b49f280cc8.png)
+
+![![](images/98b4f4a8c27de52c4861f27ad440d33.png)![](images/ffaddd3242bedb3dfcfc8ba47047fb7.png)](images/fa8b6f03b27b0311bc8cc21f414878d.png)
+
+![](images/4024a6ac4081641d1608bca72657e62.png)

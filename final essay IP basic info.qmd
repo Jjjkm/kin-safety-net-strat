@@ -1,0 +1,68 @@
+---
+title: "final essay 1"
+format: html
+editor: visual
+---
+
+```         
+```
+
+```{r,setup,include=F}
+knitr::opts_knit$set(root.dir = 
+"D:\\r git projects\\ox-R\\final essay\\Understanding Society Innovation Panel, Waves 1-15, 2008-2022\\UKDA-6849-tab\\tab")
+
+
+```
+
+```{r,cache=T}
+##15 waves
+##for codebooks see dictionaries
+#wave 1 all tables
+
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Innovation Panel, Waves 1-15, 2008-2022\\UKDA-6849-tab\\tab")
+
+adopt1<-read.table("a_adopt_ip.tab" ,header=T)
+
+callrec1<-read.table("a_callrec_ip.tab" ,header=T)
+
+childcare1<-read.table("a_childcare_ip.tab" ,header = T)
+
+cohab1<-read.table("a_cohab_ip.tab",header = T)
+
+egoalt1<-read.table("a_egoalt_ip.tab",header=T)
+
+hhresp1<-read.table("a_hhresp_ip.tab",header=T)
+
+hhsamp1<-read.table("a_hhsamp_ip.tab",header=T)
+
+htimings1<-read.table("a_htimings_ip.tab",header = T)
+
+income1<-read.table( "a_income_ip.tab",header=T)
+
+indall1<-read.table("a_indall_ip.tab",header=T)
+
+indresp1<-read.table("a_indresp_ip.tab",header=T)
+
+issue1<-read.table("a_issue_ip.tab",header = T)
+
+marriage1<-read.table("a_marriage_ip.tab",header=T)
+
+natchild1<-read.table("a_natchild_ip.tab",header = T)
+
+ptimings1<-read.table("a_ptimings_ip.tab",header = T)
+
+youth1<-read.table( "a_youth_ip.tab",header=T)
+```
+
+```         
+```
+
+![](images/2f48f9a181401c1b346a752e251c878.png)
+
+![](images/d1ad89119e4d2110214311e74a6386c.png)
+
+![](images/0ba1bbb056a70738159b9f0d8d751e2.png)
+
+# PNO
+
+![](images/fb8bd7f24645358f32b0c1b1953fb45.png)
