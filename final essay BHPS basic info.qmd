@@ -32,4 +32,6 @@ bhps_ego1<-read.table("ba_egoalt.tab",header=T,fill = T)
 
 ![![](images/98b4f4a8c27de52c4861f27ad440d33.png)![](images/ffaddd3242bedb3dfcfc8ba47047fb7.png)](images/fa8b6f03b27b0311bc8cc21f414878d.png)
 
-![](images/4024a6ac4081641d1608bca72657e62.png)
+![](images/4024a6ac4081641d1608bca72657e62.png){width="774"}
+
+![](images/37318509fa2fb8b023ef444d542e428.png)
