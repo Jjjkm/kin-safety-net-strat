@@ -12,7 +12,7 @@ setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2
 bhps_indi1<-read.table("ba_indresp.tab",header = T)
 
 
-bhps_indi2<-read.table("bb_indresp.tab",header = T)
+bhps_indi11<-read.table("bk_indresp.tab",header=T,fill = T)
 
 
 #Pos. = 100	Variable = bb_qfk	Variable label = Qualifications: university diploma  
