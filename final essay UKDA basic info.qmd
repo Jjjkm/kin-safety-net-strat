@@ -6,8 +6,21 @@ editor: visual
 
 ```{r}
 
-setwd("D:\\r git projects\\kin-safety-net-strat\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
 
-ukda_indi1<-read.table("a_indresp.tab",header=T)
+ukhls_indi1<-read.table("a_indresp.tab",header=T)
+```
 
+```{r}
+#the survival status of mon and dad (including step and adoptive)
+#pns1_pno make it 0 or 1 
+#pns2_pno make it 0 or 1
+#lvrel1 mon  1vrel2 dad   lvrel9 ad mon  lvrel10 ad dad make them 0 or 1 (those not living together)
+#add the pns1_pno, pns2_pno, lvrel1,lvrel2, lvrel9, lvrel10 together, if value>2, take 2
+
+#for whether having a dependent child under 16: nchunder16 
+
+#for defacto marital status marstat_dv (harmonized)
+
+#qfhigh (SES,by education?)
 ```
