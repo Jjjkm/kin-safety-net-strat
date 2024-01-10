@@ -9,6 +9,12 @@ editor: visual
 setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
 
 ukhls_indi1<-read.table("a_indresp.tab",header=T)
+ukhls_indi3<-read.table("c_indresp.tab",header=T)
+```
+
+```{r}
+test1<-as.data.frame(cbind(ukhls_indi3$pidp,ukhls_indi3$c_paidu1))
+test1$V1<-as.character(test1$V1)
 ```
 
 ```{r}

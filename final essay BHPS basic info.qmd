@@ -15,10 +15,17 @@ bhps_indi1<-read.table("ba_indresp.tab",header = T)
 bhps_indi11<-read.table("bk_indresp.tab",header=T,fill = T)
 
 
+
 #Pos. = 100	Variable = bb_qfk	Variable label = Qualifications: university diploma  
 # Pos. = 251-261	Variable = bb_aidhh	Variable label = Cares for handicapped/other in household
 
 
+```
+
+```{r}
+test11<-as.data.frame(cbind(bhps_indi11$pidp,bhps_indi11$bk_paidu1))
+##if need to 
+test11$V1<-as.character(test11$V1)
 ```
 
 ```{r}
