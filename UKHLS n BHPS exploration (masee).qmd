@@ -1,0 +1,77 @@
+---
+title: "UKHLS n BHPS exploration (masee)"
+format: html
+editor: visual
+---
+
+## Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009
+
+```{r}
+##reading ukhls data with masee variables
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+
+ukhls_indi3<-read.table("c_indresp.tab",header=T)
+ukhls_indi5<-read.table("e_indresp.tab",header=T)
+ukhls_indi7<-read.table("g_indresp.tab",header=T)
+ukhls_indi9<-read.table("i_indresp.tab",header=T)
+ukhls_indi11<-read.table("k_indresp.tab",header=T)
+ukhls_indi13<-read.table("m_indresp.tab",header=T)
+```
+
+```{r}
+##reading ukhls data with masee variables
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+ukhls_indi1<-read.table("a_indresp.tab",header=T)
+```
+
+# Exploring masee for different social classes
+
+```{r}
+ukhls1<-as.data.frame(cbind(ukhls_indi1$pidp,ukhls_indi1$a_masee,ukhls_indi1$a_pasee,ukhls_indi1$a_macon,ukhls_indi1$a_pacon,ukhls_indi1$a_mafar,ukhls_indi1$a_pafar))
+ukhls1$V1<-as.character(ukhls1$V1)
+colnames(ukhls1)<-c("pidp","masee(ukhls1)","pasee(ukhls1)","macon(ukhls1)","pacon(ukhls1)","mafar(ukhls1)","pafar(ukhls1)")
+
+ukhls3<-as.data.frame(cbind(ukhls_indi3$pidp,ukhls_indi3$c_masee,ukhls_indi3$c_pasee,ukhls_indi3$c_macon,ukhls_indi3$c_pacon,ukhls_indi3$c_mafar,ukhls_indi3$c_pafar))
+ukhls3$V1<-as.character(ukhls3$V1)
+colnames(ukhls3)<-c("pidp","masee(ukhls3)","pasee(ukhls3)","macon(ukhls3)","pacon(ukhls3)","mafar(ukhls3)","pafar(ukhls3)")
+
+ukhls5<-as.data.frame(cbind(ukhls_indi5$pidp,ukhls_indi5$e_masee,ukhls_indi5$e_pasee,ukhls_indi5$e_macon,ukhls_indi5$e_pacon,ukhls_indi5$e_mafar,ukhls_indi5$e_pafar))
+ukhls5$V1<-as.character(ukhls5$V1)
+colnames(ukhls5)<-c("pidp","masee(ukhls5)","pasee(ukhls5)","macon(ukhls5)","pacon(ukhls5)","mafar(ukhls5)","pafar(ukhls5)")
+
+ukhls7<-as.data.frame(cbind(ukhls_indi7$pidp,ukhls_indi7$g_masee,ukhls_indi7$g_pasee,ukhls_indi7$g_macon,ukhls_indi7$g_pacon,ukhls_indi7$g_mafar,ukhls_indi7$g_pafar))
+ukhls7$V1<-as.character(ukhls7$V1)
+colnames(ukhls7)<-c("pidp","masee(ukhls7)","pasee(ukhls7)","macon(ukhls7)","pacon(ukhls7)","mafar(ukhls7)","pafar(ukhls7)")
+
+ukhls9<-as.data.frame(cbind(ukhls_indi9$pidp,ukhls_indi9$i_masee,ukhls_indi9$i_pasee,ukhls_indi9$i_macon,ukhls_indi9$i_pacon,ukhls_indi9$i_mafar,ukhls_indi9$i_pafar))
+ukhls9$V1<-as.character(ukhls9$V1)
+colnames(ukhls9)<-c("pidp","masee(ukhls9)","pasee(ukhls9)","macon(ukhls9)","pacon(ukhls9)","mafar(ukhls9)","pafar(ukhls9)")
+
+ukhls11<-as.data.frame(cbind(ukhls_indi11$pidp,ukhls_indi11$k_masee,ukhls_indi11$k_pasee,ukhls_indi11$k_macon,ukhls_indi11$k_pacon,ukhls_indi11$k_mafar,ukhls_indi11$k_pafar))
+ukhls11$V1<-as.character(ukhls11$V1)
+colnames(ukhls11)<-c("pidp","masee(ukhls11)","pasee(ukhls11)","macon(ukhls11)","pacon(ukhls11)","mafar(ukhls11)","pafar(ukhls11)")
+
+ukhls13<-as.data.frame(cbind(ukhls_indi13$pidp,ukhls_indi13$m_masee,ukhls_indi13$m_pasee,ukhls_indi13$m_macon,ukhls_indi13$m_pacon,ukhls_indi13$m_mafar,ukhls_indi13$m_pafar))
+ukhls13$V1<-as.character(ukhls13$V1)
+colnames(ukhls13)<-c("pidp","masee(ukhls13)","pasee(ukhls13)","macon(ukhls13)","pacon(ukhls13)","mafar(ukhls13)","pafar(ukhls13)")
+
+#merge dataframes (pidp) ukhls waves 1~13
+library(tidyverse)
+list<-list(ukhls1,ukhls3,ukhls5,ukhls7,ukhls9,ukhls11,ukhls13)
+ukhls_masee<-list%>%reduce(inner_join, by='pidp')
+```
+
+```{r}
+#age delimits 2001 to 2023 within 25-50  21 years 25<=age<=38
+
+ukhls_age_1<-as.data.frame(cbind(ukhls_indi1$pidp,ukhls_indi1$a_age_dv))
+
+ukhls_age_1$V1<-as.character(ukhls_age_1$V1)
+colnames(ukhls_age_1)<-c("pidp","initial_age")
+
+ukhls_masee_agelist<-list(ukhls_masee,ukhls_age_1)
+
+ukhls_masee_age<-ukhls_masee_agelist%>%reduce(inner_join, by='pidp')
+
+ukhls_masee_age<-ukhls_masee_age[which(ukhls_masee_age$initial_age%in%c(25:38)),]
+```
