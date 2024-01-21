@@ -297,11 +297,11 @@ ukhls13$ses[ukhls13$education%in%c(1,2,3,4,5,6)]<-1
 
 ```{r}
 #make the kins as a factor, use the baseline-category logistic model, controlled for sex, ses, and age
-#ukhls1$kins<-factor(ukhls1$kins,levels=c(1,2,3,4,5,6,7,8,9,10,11,12),labels=c("2P_S","2P_S_C","2P","2p_C","1p_S","1P_S_C","1P","1P_C","S","S_C","None","C"))
+ukhls1$kins<-factor(ukhls1$kins,levels=c(1,2,3,4,5,6,7,8,9,10,11,12),labels=c("2P_S","2P_S_C","2P","2p_C","1p_S","1P_S_C","1P","1P_C","S","S_C","None","C"))
 
-#ukhls1$sex<-factor(ukhls1$sex,levels=c(1,2),labels=c("M","F"))
+ukhls1$sex<-factor(ukhls1$sex,levels=c(1,2),labels=c("M","F"))
 
-#ukhls1$ses<-factor(ukhls1$ses,levels=c(1,0),labels=c("highses","lowses"))
+ukhls1$ses<-factor(ukhls1$ses,levels=c(1,0),labels=c("highses","lowses"))
 
 
 #table(ukhls1$sex,ukhls1$ses,ukhls1$kins)
@@ -326,20 +326,22 @@ ukhls13$age_factor<-factor(ukhls13$age_factor,levels = c(0,1),labels = c("young"
 ```
 
 ```{r}
-library("tidyverse")
-test<-ukhls1%>%select(sex,ses,age_factor,kins)
+library(tidyverse)
+
+test<-ukhls1%>%dplyr::select(sex,ses,age_factor,kins)
 out1<-test%>%count(sex,ses,age_factor,kins)
+snd1<-test%>%count(kins,sex,ses,age_factor)
+
 library(tidyr)
 out1<-pivot_wider(out1,names_from = kins,values_from = n)
 out1<-as.data.frame(out2)
 print(out1)
 
-test2<-ukhls13%>%select(sex,ses,age_factor,kins)
+test2<-ukhls13%>%dplyr::select(sex,ses,age_factor,kins)
 out2<-test2%>%count(sex,ses,age_factor,kins)
 out2<-pivot_wider(out2,names_from = kins,values_from = n)
 out2<-as.data.frame(out2)
 print(out2)
-
 
 ```
 
@@ -402,4 +404,98 @@ library(VGAM)
 fit2<-vglm(cbind(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12)~sex+ses+age,family = multinomial)
 
 summary(fit2)
+
+```
+
+for calculating APE
+
+```{r}
+```
+
+```{r}
+library("mclogit")
+#not practical now
+#fit3<-mblogit(kins~sex+ses+age_factor,weights = n,data=snd1)
+        
+house.mblogit <- mblogit(Sat ~ Infl + Type + Cont, weights = Freq,data = housing)
+
+#summary(fit3)
+#mtable(fit3)
+
+summary(house.mblogit)
+#not implementable
+margins(house.mblogit,type = "response")
+```
+
+----------------------------------
+
+glm models (simple) for average partial effects
+
+```{r}
+#for parents
+#make a column with 2 parent 1 otherwise 0
+ukhls1$two_parent<-c(0)
+ukhls1$two_parent[ukhls1$parents==2]<-1
+test3<-ukhls1%>%dplyr::select(two_parent,sex,ses,age)
+fit3<-glm(two_parent~sex+ses+age,data=test3,famil=binomial(link="logit"))
+summary(fit3)
+
+ukhls13$two_parent<-c(0)
+ukhls13$two_parent[ukhls13$parents==2]<-1
+test4<-ukhls13%>%dplyr::select(two_parent,sex,ses,age)
+fit4<-glm(two_parent~sex+ses+age,data=test4,famil=binomial(link="logit"))
+summary(fit4)
+
+
+m1<-margins(fit3,type = "response")
+m2<-margins(fit4,type = "response")
+
+summary(m1)
+summary(m2)
+
+par(mfrow=c(1,2))
+plot(m1)
+plot(m2)
+```
+
+```{r}
+#for spouses
+test5<-ukhls1%>%dplyr::select(partner,sex,ses,age)
+fit5<-glm(partner~sex+ses+age,data=test5,famil=binomial(link="logit"))
+summary(fit5)
+
+test6<-ukhls13%>%dplyr::select(partner,sex,ses,age)
+fit6<-glm(partner~sex+ses+age,data=test6,famil=binomial(link="logit"))
+summary(fit6)
+
+m3<-margins(fit5,type = "response")
+m4<-margins(fit6,type = "response")
+
+summary(m3)
+summary(m4)
+
+par(mfrow=c(1,2))
+plot(m3)
+plot(m4)
+```
+
+```{r}
+#for children
+test7<-ukhls1%>%dplyr::select(child,sex,ses,age)
+fit7<-glm(child~sex+ses+age,data=test7,famil=binomial(link="logit"))
+summary(fit7)
+
+test8<-ukhls13%>%dplyr::select(child,sex,ses,age)
+fit8<-glm(child~sex+ses+age,data=test8,famil=binomial(link="logit"))
+summary(fit8)
+
+m7<-margins(fit7,type = "response")
+m8<-margins(fit8,type = "response")
+
+summary(m7)
+summary(m8)
+
+par(mfrow=c(1,2))
+plot(m7)
+plot(m8)
 ```
