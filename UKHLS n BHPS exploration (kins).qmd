@@ -1,0 +1,405 @@
+---
+title: "UKHLS n BHPS exploration (kins)"
+format: html
+editor: visual
+---
+
+```{r,cache=T}
+##reading ukhls data with masee variables
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+ukhls_indi1<-read.table("a_indresp.tab",header=T)
+#ukhls_indi3<-read.table("c_indresp.tab",header=T)
+#ukhls_indi5<-read.table("e_indresp.tab",header=T)
+#ukhls_indi7<-read.table("g_indresp.tab",header=T)
+#ukhls_indi9<-read.table("i_indresp.tab",header=T)
+#ukhls_indi11<-read.table("k_indresp.tab",header=T)
+ukhls_indi13<-read.table("m_indresp.tab",header=T)
+```
+
+```{r,cache=T}
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+ukhls_indi2<-read.table("b_indresp.tab",header=T)
+ukhls_indi4<-read.table("d_indresp.tab",header=T)
+ukhls_indi6<-read.table("f_indresp.tab",header=T,fill=T)
+ukhls_indi8<-read.table("h_indresp.tab",header=T,fill=T)
+ukhls_indi10<-read.table("j_indresp.tab",header=T,fill=T)
+ukhls_indi12<-read.table("l_indresp.tab",header=T,fill=T)
+```
+
+```{r,cache=T}
+ukhls1<-as.data.frame(cbind(ukhls_indi1$pidp,ukhls_indi1$a_age_dv,ukhls_indi1$a_sex,ukhls_indi1$a_qfhigh_dv,ukhls_indi1$a_pns1pno,ukhls_indi1$a_pns2pno,ukhls_indi1$a_lvrel1,ukhls_indi1$a_lvrel2,ukhls_indi1$a_nchunder16,ukhls_indi1$a_marstat_dv))
+ukhls1$V1<-as.character(ukhls1$V1)
+
+colnames(ukhls1)<-c("pidp","age","sex","education","pns1pno(ukhls1)","pns2pno(ukhls1)","lvrel1(ukhls1)","lvrel2(ukhls1)","nchunder16(ukhls1)","marstat_dv(ukhls1)")
+
+#for respondents age 25 to 50
+ukhls1<-ukhls1[which(ukhls1$age%in%c(25:50)),]
+
+#no missing in education
+ukhls1<-ukhls1[which(ukhls1$education!=-9),]
+
+#no missing, proxy, refusal, don't know in livingrel
+ukhls1<-ukhls1[which(!(ukhls1$`lvrel1(ukhls1)`%in%c(-9,-7,-2,-1))),]
+ukhls1<-ukhls1[which(!(ukhls1$`lvrel2(ukhls1)`%in%c(-9,-7,-2,-1))),]
+
+#no missing for nchunder16
+ukhls1<-ukhls1[which(ukhls1$`nchunder16(ukhls1)`!=-7),]
+
+#no missing for marstat_dv
+ukhls1<-ukhls1[which(ukhls1$`marstat_dv(ukhls1)`!=-9),]
+
+
+
+#ukhls2<-as.data.frame(cbind(ukhls_indi2$pidp))
+#ukhls2$V1<-as.character(ukhls2$V1)
+#colnames(ukhls2)<-c("pidp")
+
+
+#ukhls3<-as.data.frame(cbind(ukhls_indi3$pidp,ukhls_indi3$c_pns1pno,ukhls_indi3$c_pns2pno,ukhls_indi3$c_lvrel1,ukhls_indi3$c_lvrel2,ukhls_indi3$c_lvrel9,ukhls_indi3$c_lvrel10,ukhls_indi3$c_nchunder16,ukhls_indi3$c_marstat_dv))
+#ukhls3$V1<-as.character(ukhls3$V1)
+#colnames(ukhls3)<-c("pidp","pns1pno(ukhls3)","pns2pno(ukhls3)","lvrel1(ukhls3)","lvrel2(ukhls3)","lvrel9(ukhls3)","lvrel10(ukhls3)","nchunder16(ukhls3)","marstat_dv(ukhls3)")
+
+#ukhls4<-as.data.frame(cbind(ukhls_indi4$pidp))
+#ukhls4$V1<-as.character(ukhls4$V1)
+#colnames(ukhls4)<-c("pidp")
+
+
+#ukhls5<-as.data.frame(cbind(ukhls_indi5$pidp))
+#ukhls5$V1<-as.character(ukhls5$V1)
+#colnames(ukhls5)<-c("pidp")
+
+#ukhls6<-as.data.frame(cbind(ukhls_indi6$pidp))
+#ukhls6$V1<-as.character(ukhls6$V1)
+#colnames(ukhls6)<-c("pidp")
+
+
+#ukhls7<-as.data.frame(cbind(ukhls_indi7$pidp))
+#ukhls7$V1<-as.character(ukhls7$V1)
+#colnames(ukhls7)<-c("pidp")
+
+#ukhls8<-as.data.frame(cbind(ukhls_indi8$pidp))
+#ukhls8$V1<-as.character(ukhls8$V1)
+#colnames(ukhls8)<-c("pidp")
+
+
+#ukhls9<-as.data.frame(cbind(ukhls_indi9$pidp))
+#ukhls9$V1<-as.character(ukhls9$V1)
+#colnames(ukhls9)<-c("pidp")
+
+#ukhls10<-as.data.frame(cbind(ukhls_indi10$pidp))
+#ukhls10$V1<-as.character(ukhls10$V1)
+#colnames(ukhls10)<-c("pidp")
+
+
+#ukhls11<-as.data.frame(cbind(ukhls_indi11$pidp))
+#ukhls11$V1<-as.character(ukhls11$V1)
+#colnames(ukhls11)<-c("pidp")
+
+#ukhls12<-as.data.frame(cbind(ukhls_indi12$pidp))
+#ukhls12$V1<-as.character(ukhls12$V1)
+#colnames(ukhls12)<-c("pidp")
+
+ukhls13<-as.data.frame(cbind(ukhls_indi13$pidp,ukhls_indi13$m_age_dv,ukhls_indi13$m_sex,ukhls_indi13$m_qfhigh_dv,ukhls_indi13$m_pns1pno,ukhls_indi13$m_pns2pno,ukhls_indi13$m_lvrel1,ukhls_indi13$m_lvrel2, ukhls_indi13$m_lvrel9,ukhls_indi13$m_lvrel10,ukhls_indi13$m_nchunder16,ukhls_indi13$m_marstat_dv))
+
+ukhls13$V1<-as.character(ukhls13$V1)
+
+colnames(ukhls13)<-c("pidp","age","sex","education","pns1pno(ukhls13)","pns2pno(ukhls13)","lvrel1(ukhls13)","lvrel2(ukhls13)","lvrel9(ukhls13)","lvrel10(ukhls13)","nchunder16(ukhls13)","marstat_dv(ukhls13)")
+
+ukhls13<-ukhls13[which(ukhls13$age%in%c(25:50)),]
+
+#no missing in sex
+ukhls13<-ukhls13[which(ukhls13$sex!=-9),]
+
+#no missing and inapplicable in education
+ukhls13<-ukhls13[which(!(ukhls13$education%in%c(-9,-8))),]
+
+#no missing, refusal, and don't know in lvrel
+ukhls13<-ukhls13[which(!(ukhls13$`lvrel1(ukhls13)`%in%c(-7,-2,-1))),]
+#table(ukhls13$`lvrel1(ukhls13)`)
+#table(ukhls13$`lvrel2(ukhls13)`)
+#table(ukhls13$`lvrel9(ukhls13)`)
+#table(ukhls13$`lvrel10(ukhls13)`)
+
+
+#no missing in nchunder 16
+table(ukhls13$`nchunder16(ukhls13)`)
+
+#no missing in marstat_dv
+ukhls13<-ukhls13[which(ukhls13$`marstat_dv(ukhls13)`!=-9),]
+
+
+
+#merge dataframes (pidp) ukhls waves 1~13
+#library(tidyverse)
+#list<-list(ukhls1,ukhls2,ukhls3,ukhls4,ukhls5,ukhls6,ukhls7,ukhls8,ukhls9,ukhls10,ukhls11,ukhls12,ukhls13)
+#ukhls_kins<-list%>%reduce(inner_join, by='pidp')
+
+
+```
+
+```{r,cache=T}
+#create a variable "parents" to measure whether the respondent has two parents
+ukhls1$pns1<-c(0)
+ukhls1$pns1[ukhls1$`pns1pno(ukhls1)`!=0]<-1
+ukhls1$pns2<-c(0)
+ukhls1$pns2[ukhls1$`pns2pno(ukhls1)`!=0]<-1
+
+
+ukhls1$parent<-ukhls1$pns1+ukhls1$pns2+ukhls1$`lvrel1(ukhls1)`+ukhls1$`lvrel2(ukhls1)`
+ukhls1$parents<-c(0)
+ukhls1$parents[ukhls1$parent>=2]<-2
+ukhls1$parents[ukhls1$parent==1]<-1
+
+#____
+ukhls13$pns1<-c(0)
+ukhls13$pns1[ukhls13$`pns1pno(ukhls13)`!=0]<-1
+ukhls13$pns2<-c(0)
+ukhls13$pns2[ukhls13$`pns2pno(ukhls13)`!=0]<-1
+
+
+ukhls13$parent<-ukhls13$pns1+ukhls13$pns2+ukhls13$`lvrel1(ukhls13)`+ukhls13$`lvrel2(ukhls13)`+ukhls13$`lvrel9(ukhls13)`+ukhls13$`lvrel10(ukhls13)`
+        
+ukhls13$parents<-c(0)
+ukhls13$parents[ukhls13$parent>=2]<-2
+ukhls13$parents[ukhls13$parent==1]<-1
+
+
+```
+
+```{r}
+#create a variable "child" to measure whether the respondent has dependent children under 16
+ukhls1$child<-c(0)
+ukhls1$child[ukhls1$`nchunder16(ukhls1)`>=1]<-1
+
+ukhls13$child<-c(0)
+ukhls13$child[ukhls13$`nchunder16(ukhls13)`>=1]<-1
+```
+
+```{r}
+#create a variable "partner" to measure whether the respondent has married/cohabiting partner
+ukhls1$partner<-c(0)
+ukhls1$partner[ukhls1$`marstat_dv(ukhls1)`%in%c(1,2)]<-1
+
+ukhls13$partner<-c(0)
+ukhls13$partner[ukhls13$`marstat_dv(ukhls13)`%in%c(1,2)]<-1
+```
+
+Adding up with the sequence: parent spouse children
+
+for ukhls1:
+
+```{r}
+ukhls1$kins<-c(0)
+
+#1 two parents with spouse no children
+ukhls1$kins[ukhls1$parents==2 & ukhls1$partner==1 & ukhls1$child==0]<-1
+
+#2 two parents with spouse and children
+ukhls1$kins[ukhls1$parents==2 & ukhls1$partner==1 & ukhls1$child==1]<-2
+
+#3 two parents no spouse no children
+ukhls1$kins[ukhls1$parents==2 & ukhls1$partner==0 & ukhls1$child==0]<-3
+
+#4 two parents with children no spouse
+ukhls1$kins[ukhls1$parents==2 & ukhls1$partner==0 & ukhls1$child==1]<-4
+
+
+
+
+#5 one parent with spouse no children
+ukhls1$kins[ukhls1$parents==1 & ukhls1$partner==1 & ukhls1$child==0]<-5
+
+#6 one parent with spouse and children
+ukhls1$kins[ukhls1$parents==1 & ukhls1$partner==1 & ukhls1$child==1]<-6
+
+#7 one parent no spouse no children
+ukhls1$kins[ukhls1$parents==1 & ukhls1$partner==0 & ukhls1$child==0]<-7
+
+#8 one parent with children no spouse
+ukhls1$kins[ukhls1$parents==1 & ukhls1$partner==0 & ukhls1$child==1]<-8
+
+
+
+#9 no parent with spouse no children
+ukhls1$kins[ukhls1$parents==0 & ukhls1$partner==1 & ukhls1$child==0]<-9
+
+#10 no parent with spouse and children
+ukhls1$kins[ukhls1$parents==0 & ukhls1$partner==1 & ukhls1$child==1]<-10
+
+#11 no parent no spouse no children
+ukhls1$kins[ukhls1$parents==0 & ukhls1$partner==0 & ukhls1$child==0]<-11
+
+#12 no parent with children no spouse
+ukhls1$kins[ukhls1$parents==0 & ukhls1$partner==0 & ukhls1$child==1]<-12
+
+
+
+```
+
+for ukhls13:
+
+```{r}
+ukhls13$kins<-c(0)
+
+#1 two parents with spouse no children
+ukhls13$kins[ukhls13$parents==2 & ukhls13$partner==1 & ukhls13$child==0]<-1
+
+#2 two parents with spouse and children
+ukhls13$kins[ukhls13$parents==2 & ukhls13$partner==1 & ukhls13$child==1]<-2
+
+#3 two parents no spouse no children
+ukhls13$kins[ukhls13$parents==2 & ukhls13$partner==0 & ukhls13$child==0]<-3
+
+#4 two parents with children no spouse
+ukhls13$kins[ukhls13$parents==2 & ukhls13$partner==0 & ukhls13$child==1]<-4
+
+
+
+
+#5 one parent with spouse no children
+ukhls13$kins[ukhls13$parents==1 & ukhls13$partner==1 & ukhls13$child==0]<-5
+
+#6 one parent with spouse and children
+ukhls13$kins[ukhls13$parents==1 & ukhls13$partner==1 & ukhls13$child==1]<-6
+
+#7 one parent no spouse no children
+ukhls13$kins[ukhls13$parents==1 & ukhls13$partner==0 & ukhls13$child==0]<-7
+
+#8 one parent with children no spouse
+ukhls13$kins[ukhls13$parents==1 & ukhls13$partner==0 & ukhls13$child==1]<-8
+
+
+
+#9 no parent with spouse no children
+ukhls13$kins[ukhls13$parents==0 & ukhls13$partner==1 & ukhls13$child==0]<-9
+
+#10 no parent with spouse and children
+ukhls13$kins[ukhls13$parents==0 & ukhls13$partner==1 & ukhls13$child==1]<-10
+
+#11 no parent no spouse no children
+ukhls13$kins[ukhls13$parents==0 & ukhls13$partner==0 & ukhls13$child==0]<-11
+
+#12 no parent with children no spouse
+ukhls13$kins[ukhls13$parents==0 & ukhls13$partner==0 & ukhls13$child==1]<-12
+
+```
+
+```{r}
+#make the education as factor
+ukhls1$ses<-c(0)
+ukhls1$ses[ukhls1$education%in%c(1,2,3,4,5)]<-1
+
+ukhls13$ses<-c(0)
+ukhls13$ses[ukhls13$education%in%c(1,2,3,4,5,6)]<-1
+
+
+```
+
+```{r}
+#make the kins as a factor, use the baseline-category logistic model, controlled for sex, ses, and age
+#ukhls1$kins<-factor(ukhls1$kins,levels=c(1,2,3,4,5,6,7,8,9,10,11,12),labels=c("2P_S","2P_S_C","2P","2p_C","1p_S","1P_S_C","1P","1P_C","S","S_C","None","C"))
+
+#ukhls1$sex<-factor(ukhls1$sex,levels=c(1,2),labels=c("M","F"))
+
+#ukhls1$ses<-factor(ukhls1$ses,levels=c(1,0),labels=c("highses","lowses"))
+
+
+#table(ukhls1$sex,ukhls1$ses,ukhls1$kins)
+
+#ukhls13--------
+ukhls13$kins<-factor(ukhls13$kins,levels=c(1,2,3,4,5,6,7,8,9,10,11,12),labels=c("2P_S","2P_S_C","2P","2p_C","1p_S","1P_S_C","1P","1P_C","S","S_C","None","C"))
+ukhls13$sex<-factor(ukhls13$sex,levels=c(1,2),labels=c("M","F"))
+ukhls13$ses<-factor(ukhls13$ses,levels=c(1,0),labels=c("highses","lowses"))
+```
+
+```{r}
+#make age a factor of high and low
+ukhls1$age_factor<-c(0)
+ukhls1$age_factor[ukhls1$age%in%c(25:37)]<-0
+ukhls1$age_factor[ukhls1$age%in%c(38:50)]<-1
+ukhls1$age_factor<-factor(ukhls1$age_factor,levels = c(0,1),labels = c("young","old"))
+
+ukhls13$age_factor<-c(0)
+ukhls13$age_factor[ukhls13$age%in%c(25:37)]<-0
+ukhls13$age_factor[ukhls13$age%in%c(38:50)]<-1
+ukhls13$age_factor<-factor(ukhls13$age_factor,levels = c(0,1),labels = c("young","old"))
+```
+
+```{r}
+library("tidyverse")
+test<-ukhls1%>%select(sex,ses,age_factor,kins)
+out1<-test%>%count(sex,ses,age_factor,kins)
+library(tidyr)
+out1<-pivot_wider(out1,names_from = kins,values_from = n)
+out1<-as.data.frame(out2)
+print(out1)
+
+test2<-ukhls13%>%select(sex,ses,age_factor,kins)
+out2<-test2%>%count(sex,ses,age_factor,kins)
+out2<-pivot_wider(out2,names_from = kins,values_from = n)
+out2<-as.data.frame(out2)
+print(out2)
+
+
+```
+
+```{r}
+#conduct baseline logistic tests for ukhls1
+#1 for men, 0 for women
+sex<-c(rep(1,4),rep(0,4))
+
+#1 for high ses, 0 for low ses
+ses<-c(rep(1,2),rep(0,2),rep(1,2),rep(0,2))
+
+#1 for younger people, 0 for older people
+age<-c(1,0,1,0,1,0,1,0)
+
+y1<-c(549,208,399,380,694,288,292,425)
+y2<-c(542,525,841,687,947,717,1293,827)
+y3<-c(533,141,533,310,442,188,287,274)
+y4<-c(8,13,23,28,167,147,556,309)
+y5<-c(109,153,112,368, 97,221, 76,443)
+y6<-c(159,366,271,576,240,405, 419,646)
+y7<-c(110,93,147,277,82,140, 89,276)
+y8<-c(22,73,27,184,25,97,26,282)
+y9<-c(29, 136,56,268 ,41,105,100,227)
+y10<-c(28,53,42,161,9,51,22,169)
+y11<-c(0,15,6,20,56,109,201,231)
+y12<-c(0,7,2,8,12,42,59,105)
+
+library(VGAM)
+fit<-vglm(cbind(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12)~sex+ses+age,family = multinomial)
+
+summary(fit)
+
+```
+
+```{r}
+#conduct baseline logistic tests for ukhls13
+#1 for men, 0 for women
+sex<-c(rep(1,4),rep(0,4))
+
+#1 for high ses, 0 for low ses
+ses<-c(rep(1,2),rep(0,2),rep(1,2),rep(0,2))
+
+#1 for younger people, 0 for older people
+age<-c(1,0,1,0,1,0,1,0)
+
+y1<-c(243,142,117,118,352,186,102,170)
+y2<-c(192,450,228,325,398,561,282,340)
+y3<-c(285,82,261,78,368,96,191,84)
+y4<-c(2,7,3,6,49,75,86,66)
+y5<-c(35,61,25,88,38,104,17,107)
+y6<-c(48,188,43,174,72,211,61,174)
+y7<-c(56,36,53,62,55,50,33,59)
+y8<-c(1,2,0,3,14,44,28,39)
+y9<-c(19,27,20,51,23,51,21,81)
+y10<-c(21,90,26,103,34,109,54,106)
+y11<-c(18,12,22,31,29,35,19,40)
+y12<-c(0,2,2,3,11,17,12,14)
+
+library(VGAM)
+fit2<-vglm(cbind(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12)~sex+ses+age,family = multinomial)
+
+summary(fit2)
+```
