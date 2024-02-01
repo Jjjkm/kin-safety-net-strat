@@ -1,0 +1,202 @@
+---
+title: "multi-level exploration (parenting2)"
+format: html
+editor: visual
+---
+
+![](images/bfca7090f4a046bce207cae2cbf7963.png){width="456"}
+
+![](images/9648a5e9d60282672fc0adb33dcfe19.png){width="423"}
+
+![](images/9d00770c057fe2f7829e13817108e4d.png){width="425"}
+
+![](images/9658844067207d6600d03f5b53acf1a.png){width="424"}
+
+![](images/d63b0a73364cda1eb3298f570c3f95c.png){width="441"}
+
+```{r}
+#read dat
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+ukhls_indi13<-read.table("m_indresp.tab",header=T)
+ukhls_indi12<-read.table("l_indresp.tab",header=T)
+```
+
+```{r}
+library(tidyverse)
+ukhls12<-ukhls_indi12%>%select(pidp,l_wkaut1,l_wkaut2,l_wkaut3,l_wkaut4,l_wkaut5,l_wkends,l_wkhome,l_depenth1,l_depenth2,l_depenth3,l_depenth4,l_depenth5,l_depenth6)
+colnames(ukhls12)<-c("pidp","wkaut1","wkaut2","wkaut3","wkaut4","wkaut5","wkends","wkhome","depenth1","depenth2","depenth3","depenth4","depenth5","depenth6")
+
+
+ukhls13<-ukhls_indi13%>%select(pidp,m_sex,m_age_dv,m_jbnssec3_dv,m_qfhigh_dv,m_nchunder16,m_marstat_dv,m_jbhrs,m_jbsat,m_ps1,m_ps2,m_ps3,m_ps4,m_ps5,m_ps6,m_ps7,m_ps8,m_ps9,m_ps10,m_ps11,m_ps12,m_ps13,m_ps14,m_ps15,m_ps16,m_ps17,m_ps18,m_ps19,m_ps20,m_ps21,m_ps22,m_ps23,m_ps24,m_ps25,m_ps26,m_ps27,m_ps28,m_ps29,m_ps30,m_ps31,m_ps32)
+
+colnames(ukhls13)<-c("pidp","sex","age","class","education","nchild","marstat","jbhrs","jbsat","ps1","ps2","ps3","ps4","ps5","ps6","ps7","ps8","ps9","ps10","ps11","ps12","ps13","ps14","ps15","ps16","ps17","ps18","ps19","ps20","ps21","ps22","ps23","ps24","ps25","ps26","ps27","ps28","ps29","ps30","ps31","ps32")
+
+
+
+
+
+df_list<-list(ukhls12,ukhls13)
+ukhls<-df_list%>%reduce(inner_join, by='pidp')
+
+#no na sex  #1 male  2 female
+ukhls<-ukhls[which(!(ukhls$sex%in%c(-9))),]
+
+#no na age_dv
+ukhls<-ukhls[which(!(ukhls$age%in%c(-9))),]
+
+#no na class
+ukhls<-ukhls[which(!(ukhls$class%in%c(-9,-8))),]
+
+#no na education
+ukhls<-ukhls[which(!(ukhls$education%in%c(-9,-8))),]
+
+
+#no na in jbhrs
+ukhls<-ukhls[which(!(ukhls$jbhrs%in%c(-9,-8,-2,-1))),]
+
+
+#no na in jbsat
+ukhls<-ukhls[which(!(ukhls$jbsat%in%c(-8,-7,-2,-1))),]
+
+#no na in marstat_dv
+ukhls<-ukhls[which(!(ukhls$marstat%in%c(-9))),]
+
+
+#no na in wkaut
+ukhls<-ukhls[which(!(ukhls$wkaut1%in%c(-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$wkaut2%in%c(-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$wkaut3%in%c(-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$wkaut4%in%c(-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$wkaut5%in%c(-8,-7,-2,-1))),]
+
+#no na in wkhome
+#ukhls<-ukhls[which(!(ukhls$wkhome%in%c(-1))),]
+
+#no na in wkend
+#ukhls<-ukhls[which(!(ukhls$wkends%in%c(-1,-2))),]
+
+#no na in ps
+ukhls<-ukhls[which(!(ukhls$ps1%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps2%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps3%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps4%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps5%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps6%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps7%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps8%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps9%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps10%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps11%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps12%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps13%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps14%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps15%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps16%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps17%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps18%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps19%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps20%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps21%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps22%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps23%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps24%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps25%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps26%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps27%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps28%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps29%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps30%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps31%in%c(-9,-8,-7,-2,-1))),]
+ukhls<-ukhls[which(!(ukhls$ps32%in%c(-9,-8,-7,-2,-1))),]
+
+#no na in depenth after investigating using table
+```
+
+```{r}
+#make class a factor
+ukhls$class_factor<-factor(ukhls$class,levels=c(1,2,3),labels=c("professional","intermediate","routine"))
+
+#authoritarian n mapadaptive parenting styles
+ukhls$au<-ukhls$ps2+ukhls$ps4+ukhls$ps6+ukhls$ps8+ukhls$ps10+ukhls$ps13+ukhls$ps15+ukhls$ps16+ukhls$ps17+ukhls$ps19+ukhls$ps20+ukhls$ps23+ukhls$ps24+ukhls$ps26+ukhls$ps28+ukhls$ps30+ukhls$ps32
+
+#middle-class parenting values
+ukhls$md<-ukhls$ps1+ukhls$ps3+ukhls$ps5+ukhls$ps7+ukhls$ps9+ukhls$ps11+ukhls$ps12+ukhls$ps14+ukhls$ps18+ukhls$ps21+ukhls$ps22+ukhls$ps25+ukhls$ps27+ukhls$ps29+ukhls$ps31
+
+#work autonomy
+ukhls$wkaut<-ukhls$wkaut1+ukhls$wkaut2+ukhls$wkaut3+ukhls$wkaut4+ukhls$wkaut5
+
+#work stress
+ukhls$depenth<-ukhls$depenth1+ukhls$depenth2+ukhls$depenth3+ukhls$depenth4+ukhls$depenth5+ukhls$depenth6
+
+#lnage
+ukhls$lnage<-log(ukhls$age)
+
+#education
+ukhls$education_factor<-c(0)
+ukhls$education_factor[ukhls$education%in%c(1,2,3,4,5,6)]<-1
+
+#marstat
+ukhls$marstat_factor<-c(0)
+ukhls$marstat_factor[ukhls$marstat%in%c(2,3,10)]<-1 
+#In a registered same-sex civil partnership, married, or living as a couple <-1
+
+
+fit<-lm(ukhls$au~ukhls$sex+ukhls$lnage+ukhls$education_factor+ukhls$marstat_factor+ukhls$nchild+ukhls$jbhrs+ukhls$jbsat+ukhls$wkends+ukhls$wkaut+ukhls$depenth)
+#summary(fit)
+
+fit2<-lm(ukhls$md~ukhls$sex+ukhls$lnage+ukhls$education_factor+ukhls$marstat_factor+ukhls$nchild+ukhls$jbhrs+ukhls$jbsat+ukhls$wkends+ukhls$wkaut+ukhls$depenth)
+#summary(fit2)
+
+fit3<-lm(ukhls$depenth~ukhls$sex+ukhls$lnage+ukhls$class_factor+ukhls$education_factor+ukhls$marstat_factor+ukhls$nchild+ukhls$jbhrs+ukhls$jbsat+ukhls$wkends+ukhls$wkaut)
+
+fit4<-lm(ukhls$jbsat~ukhls$sex+ukhls$class_factor+ukhls$lnage+ukhls$education_factor+ukhls$marstat_factor+ukhls$nchild+ukhls$jbhrs+ukhls$wkends+ukhls$wkaut+ukhls$depenth)
+```
+
+```{r}
+#random-intercept multilevel model?
+library(lme4)
+library(Matrix)
+#model <- lmer(math ~ homework + (1 | schid), data=mlmdata)
+#m<-lmer(au~sex+lnage+education_factor+marstat_factor+nchild+jbhrs+ukhls$jbsat+wkends+wkaut+depenth+(1|class_factor),data=ukhls)
+
+m<-lmer(au~sex+lnage+education_factor+marstat_factor+nchild+jbhrs*jbsat+jbhrs*wkends+jbsat*wkaut+jbsat*depenth+(1|class_factor),data=ukhls)
+
+m.<-lmer(au~sex+lnage+education_factor+marstat_factor+nchild+jbhrs+jbsat+wkends+wkaut+depenth+(1|class_factor),data=ukhls)
+
+
+
+m2<-lmer(md~sex+lnage+education_factor+marstat_factor+nchild+jbhrs+jbsat+wkends+wkaut+depenth+(1|class_factor),data=ukhls)
+
+m3<-lmer(au~sex+lnage+(1|class_factor),data=ukhls)
+
+summary(m3)
+```
+
+```{r}
+#We extract the random effects with the VarCorr() function
+#https://quantdev.ssri.psu.edu/tutorials/r-bootcamp-introduction-multilevel-model-and-interactions
+VarCorr(m)
+
+RandomEffects <- as.data.frame(VarCorr(m))
+
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between
+
+#m no interactions
+RandomEffects4 <- as.data.frame(VarCorr(m.))
+
+ICC_between4 <- RandomEffects4[1,4]/(RandomEffects4[1,4]+RandomEffects4[2,4]) 
+ICC_between4
+
+
+RandomEffects2 <- as.data.frame(VarCorr(m2))
+
+ICC_between2 <- RandomEffects2[1,4]/(RandomEffects2[1,4]+RandomEffects2[2,4]) 
+ICC_between2
+
+RandomEffects3 <- as.data.frame(VarCorr(m3))
+
+ICC_between3 <- RandomEffects3[1,4]/(RandomEffects3[1,4]+RandomEffects3[2,4]) 
+ICC_between3
+
+```
