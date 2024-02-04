@@ -1,0 +1,270 @@
+---
+title: "UKHLS exploration (kins with weights) ukhls13"
+format: html
+editor: visual
+---
+
+```{r,cache=T}
+##reading ukhls data with masee variables
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+ukhls_indi1<-read.table("a_indresp.tab",header=T)
+
+ukhls_indi13<-read.table("m_indresp.tab",header=T)
+```
+
+```{r}
+#weighting the ukhls13 with m_indpxui_xw
+library(survey)
+library(svrep)
+library(Hmisc)
+library(srvyr)
+
+#no missing in lvrel
+ukhls_indi13$m_lvrel1[ukhls_indi13$m_lvrel1%in%c(-7,-2,-1)]<-NA
+ukhls_indi13$m_lvrel2[ukhls_indi13$m_lvrel2%in%c(-7,-2,-1)]<-NA
+ukhls_indi13$m_lvrel9[ukhls_indi13$m_lvrel9%in%c(-7,-2,-1)]<-NA
+ukhls_indi13$m_lvrel10[ukhls_indi13$m_lvrel10%in%c(-7,-2,-1)]<-NA
+
+#assigning pns values
+ukhls_indi13$m_pns1pno[ukhls_indi13$m_pns1pno!=0]<-1
+ukhls_indi13$m_pns2pno[ukhls_indi13$m_pns2pno!=0]<-1
+
+#num of parents
+ukhls_indi13$parents<-ukhls_indi13$m_lvrel1+ukhls_indi13$m_lvrel2+ukhls_indi13$m_lvrel9+ukhls_indi13$m_lvrel10+ukhls_indi13$m_pns1pno+ukhls_indi13$m_pns2pno
+
+#having one or two parents
+ukhls_indi13$panum<-c(0)
+ukhls_indi13$panum[ukhls_indi13$parents==1]<-1
+ukhls_indi13$panum[ukhls_indi13$parents>1]<-2
+
+#living with parents or not
+ukhls_indi13$lvpa<-ukhls_indi13$m_pns1pno+ukhls_indi13$m_pns2pno
+#binary
+ukhls_indi13$lvpab<-c(0)
+ukhls_indi13$lvpab[ukhls_indi13$lvpa!=0]<-1
+
+
+#no missing in age
+ukhls_indi13$m_age_dv[ukhls_indi13$m_age_dv==-9]<-NA
+
+#no missing in sex
+ukhls_indi13$m_sex_dv[ukhls_indi13$m_sex_dv%in%c(-9,0)]<-NA
+
+#no missing in education
+ukhls_indi13$m_qfhigh_dv[ukhls_indi13$m_qfhigh_dv%in%c(-9,0)]<-NA
+
+#high ses and low ses
+ukhls_indi13$ses<-c(0)
+ukhls_indi13$ses[ukhls_indi13$m_qfhigh_dv%in%c(1,2,3,4,5,6)]<-1
+
+
+#no missing in nchild_dv
+#table(ukhls_indi13$m_nchild_dv)
+
+#making nchild_dv a binary variable
+ukhls_indi13$child<-c(0)
+ukhls_indi13$child[ukhls_indi13$m_nchild_dv>=1]<-1
+
+#no missing in marstat_dv
+ukhls_indi13$m_marstat_dv[ukhls_indi13$m_marstat_dv==-9]<-NA
+
+#making partner a binary variable
+ukhls_indi13$partner<-c(0)
+ukhls_indi13$partner[ukhls_indi13$m_marstat_dv%in%c(1,2)]<-1
+
+#makeing cohab a binary variable
+ukhls_indi13$cohab<-c(0)
+ukhls_indi13$cohab[ukhls_indi13$m_marstat_dv%in%c(2)]<-1
+
+#making married a binary variable
+ukhls_indi13$mar<-c(0)
+ukhls_indi13$mar[ukhls_indi13$m_marstat_dv%in%c(1)]<-1
+#child-bearing within wedlock
+ukhls_indi13$wedch<-c(0)
+ukhls_indi13$wedch[ukhls_indi13$mar==1 & ukhls_indi13$nchild_dv !=0]<-1
+
+#making partner(only married) a binary variable
+ukhls_indi13$pamar<-c(0)
+ukhls_indi13$pamar[ukhls_indi13$m_marstat_dv%in%c(1)]<-1
+
+# svydesign(id=~1, weights=~ukhls_indi13$m_indinui_xw, data=ukhls_indi13)
+
+design<-ukhls_indi13%>%as_survey(weights=m_indpxui_xw)
+
+#subset the data for respondents aged 25-50
+ukhls13<-subset(design, m_age_dv%in%c(25:50))
+```
+
+```{r}
+m<-svyglm(parents~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit)
+m2<-svyglm(m_nchild_dv~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
+
+m3<-svyglm(partner~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit)
+
+m4<-svyglm(child~ses+m_age_dv+m_sex_dv,family=quasibinomial,design=ukhls13,na.action = na.omit)
+
+#m4<-svyglm(panum~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit)
+
+#logistic regression for binary depedent variable
+m5<-svyglm(partner~ses+m_age_dv+m_sex_dv,family=quasibinomial,design=ukhls13,na.action = na.omit)
+
+#possion regression for count model
+m6<-svyglm(parents~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
+m7<-svyglm(panum~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
+
+m8<-svyglm(lvpa~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
+
+m9<-svyglm(lvpab~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
+
+#for parent's divorce? no meaningful results
+#m10<-svyglm(lvpab~ses+m_age_dv+m_sex_dv+factor(lvpa),design=ukhls13,na.action = na.omit,family=quasibinomial)
+
+#for cohab for high n low ses
+m10<-svyglm(cohab~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
+
+#for out-of-wedlock childbearing no sig results except for sex
+#m11<-svyglm(wedch~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)  
+
+#for out-of and within wedlock child-bearing
+m11<-svyglm(child~ses+m_age_dv+m_sex_dv+pamar,design=ukhls13,na.action = na.omit,family=quasibinomial)
+```
+
+```{r}
+##plotting for partner
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m5,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for child
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m4,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+testukhls<-ukhls_indi13[which(ukhls_indi13$m_age_dv%in%c(25:50)),]
+
+test<-glm(child~ses+m_age_dv+m_sex_dv,data=testukhls,family= binomial,na.action = na.omit)
+
+##plotting for child (not weighted)
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(test,newdata=dm,type="response"))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for panum
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m7,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for parents
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m6,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for parents
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m2,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for lvpa
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m8,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
+
+```{r}
+##plotting for lvpab
+dm<-data.frame(m_sex_dv=rep(c(1,2),each=26),ses=rep(c(1,0),26),m_age_dv=rep(c(25:50),2))
+
+library(reshape2)
+pdm<-cbind(dm,predict(m9,newdata=dm,type="response",se=T))
+
+ldpm<-melt(pdm,id.vars=c("m_sex_dv","ses","m_age_dv"),value.name="probability")
+
+ldpm_F<-ldpm[which(ldpm$m_sex_dv==2),]
+ldpm_M<-ldpm[which(ldpm$m_sex_dv==1),]
+
+ggplot(ldpm_F,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+
+ggplot(ldpm_M,aes(x=m_age_dv,y=probability,color=variable,linetype=as.factor(ses)))+geom_line()+theme_minimal()
+```
