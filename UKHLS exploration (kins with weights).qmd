@@ -14,10 +14,16 @@ ukhls_indi13<-read.table("m_indresp.tab",header=T)
 
 ```{r}
 #weighting the ukhls13 with m_indpxui_xw
+library(tidyverse)
 library(survey)
 library(svrep)
 library(Hmisc)
 library(srvyr)
+library(marginaleffects)
+library(haven)
+library(catregs)
+library(margins)
+library(modelsummary)
 
 #no missing in lvrel
 ukhls_indi13$m_lvrel1[ukhls_indi13$m_lvrel1%in%c(-7,-2,-1)]<-NA
@@ -81,18 +87,29 @@ ukhls_indi13$mar<-c(0)
 ukhls_indi13$mar[ukhls_indi13$m_marstat_dv%in%c(1)]<-1
 #child-bearing within wedlock
 ukhls_indi13$wedch<-c(0)
-ukhls_indi13$wedch[ukhls_indi13$mar==1 & ukhls_indi13$nchild_dv !=0]<-1
+ukhls_indi13$wedch[ukhls_indi13$mar==1 & ukhls_indi13$m_nchild_dv !=0]<-1
+#unmarried women
 
-#making partner(only married) a binary variable
-ukhls_indi13$pamar<-c(0)
-ukhls_indi13$pamar[ukhls_indi13$m_marstat_dv%in%c(1)]<-1
 
-# svydesign(id=~1, weights=~ukhls_indi13$m_indinui_xw, data=ukhls_indi13)
+#married women
 
-design<-ukhls_indi13%>%as_survey(weights=m_indpxui_xw)
+
+```
+
+```{r}
+##adopting the complex survey design
+##??
+options(survey.lonely.psu = "adjust")
+design<-svydesign(id=~m_psu, weights=~m_indinui_xw,strata =~m_strata,data=ukhls_indi13)
+#design<-ukhls_indi13%>%srvyr::as_survey(weights=m_indpxui_xw)
+
+
+
 
 #subset the data for respondents aged 25-50
 ukhls13<-subset(design, m_age_dv%in%c(25:50))
+ukhls13_child<-subset(design, child%in%c(1))
+
 ```
 
 ```{r}
@@ -110,11 +127,14 @@ m5<-svyglm(partner~ses+m_age_dv+m_sex_dv,family=quasibinomial,design=ukhls13,na.
 
 #possion regression for count model
 m6<-svyglm(parents~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
+m66<-svyglm(parents~ses+m_age_dv+m_sex_dv,design=ukhls13_child,na.action = na.omit,family=poisson())
+
 m7<-svyglm(panum~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
 
 m8<-svyglm(lvpa~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=poisson())
 
 m9<-svyglm(lvpab~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
+m99<-svyglm(lvpab~ses*m_sex_dv+m_age_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
 
 #for parent's divorce? no meaningful results
 #m10<-svyglm(lvpab~ses+m_age_dv+m_sex_dv+factor(lvpa),design=ukhls13,na.action = na.omit,family=quasibinomial)
@@ -122,11 +142,13 @@ m9<-svyglm(lvpab~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family
 #for cohab for high n low ses
 m10<-svyglm(cohab~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
 
-#for out-of-wedlock childbearing no sig results except for sex
-#m11<-svyglm(wedch~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)  
+#for whether child-bearing within wedlock
+m11<-svyglm(wedch~ses+m_age_dv+m_sex_dv,design=ukhls13_child,na.action = na.omit,family=quasibinomial) 
+
+#m111<-svyglm(wedch~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit,family=quasibinomial)
 
 #for out-of and within wedlock child-bearing
-m11<-svyglm(child~ses+m_age_dv+m_sex_dv+pamar,design=ukhls13,na.action = na.omit,family=quasibinomial)
+m12<-svyglm(child~ses+m_age_dv+m_sex_dv+mar,design=ukhls13,na.action = na.omit,family=quasibinomial)
 ```
 
 ```{r}
