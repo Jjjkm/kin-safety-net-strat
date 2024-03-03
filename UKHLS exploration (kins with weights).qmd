@@ -7,10 +7,12 @@ editor: visual
 ```{r,cache=T}
 ##reading ukhls data with masee variables
 setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
-ukhls_indi1<-read.table("a_indresp.tab",header=T)
+#ukhls_indi1<-read.table("a_indresp.tab",header=T)
 
 ukhls_indi13<-read.table("m_indresp.tab",header=T)
 ```
+
+# Cleaning Wave 13
 
 ```{r}
 #weighting the ukhls13 with m_indpxui_xw
@@ -35,10 +37,10 @@ ukhls_indi13$m_lvrel10[ukhls_indi13$m_lvrel10%in%c(-7,-2,-1)]<-NA
 ukhls_indi13$m_pns1pno[ukhls_indi13$m_pns1pno!=0]<-1
 ukhls_indi13$m_pns2pno[ukhls_indi13$m_pns2pno!=0]<-1
 
-#num of parents
+#num of parents (not censored)
 ukhls_indi13$parents<-ukhls_indi13$m_lvrel1+ukhls_indi13$m_lvrel2+ukhls_indi13$m_lvrel9+ukhls_indi13$m_lvrel10+ukhls_indi13$m_pns1pno+ukhls_indi13$m_pns2pno
 
-#having one or two parents
+#having one & two or more parents (censored)
 ukhls_indi13$panum<-c(0)
 ukhls_indi13$panum[ukhls_indi13$parents==1]<-1
 ukhls_indi13$panum[ukhls_indi13$parents>1]<-2
@@ -57,42 +59,197 @@ ukhls_indi13$m_age_dv[ukhls_indi13$m_age_dv==-9]<-NA
 ukhls_indi13$m_sex_dv[ukhls_indi13$m_sex_dv%in%c(-9,0)]<-NA
 
 #no missing in education
-ukhls_indi13$m_qfhigh_dv[ukhls_indi13$m_qfhigh_dv%in%c(-9,0)]<-NA
+ukhls_indi13$m_qfhigh_dv[ukhls_indi13$m_qfhigh_dv%in%c(-9,-8,0)]<-NA
 
 #high ses and low ses
 ukhls_indi13$ses<-c(0)
 ukhls_indi13$ses[ukhls_indi13$m_qfhigh_dv%in%c(1,2,3,4,5,6)]<-1
 
 
-#no missing in nchild_dv
+#no missing in nchild_dv and nchresp
 #table(ukhls_indi13$m_nchild_dv)
+ukhls_indi13$m_nchresp[ukhls_indi13$m_nchresp%in%c(-7)]<-NA
+
+#make a variable of Children under 16 not living in HH
+ukhls_indi13$ohch16<-c(0)
+ukhls_indi13$ohch16[ukhls_indi13$m_ohch16%in%c(1,2)]<-1
+
 
 #making nchild_dv a binary variable
 ukhls_indi13$child<-c(0)
 ukhls_indi13$child[ukhls_indi13$m_nchild_dv>=1]<-1
 
-#no missing in marstat_dv
-ukhls_indi13$m_marstat_dv[ukhls_indi13$m_marstat_dv==-9]<-NA
+#no missing in mastat_dv
+ukhls_indi13$m_mastat_dv[ukhls_indi13$m_mastat_dv%in%c(-9,-2,-1)]<-NA
 
 #making partner a binary variable
 ukhls_indi13$partner<-c(0)
-ukhls_indi13$partner[ukhls_indi13$m_marstat_dv%in%c(1,2)]<-1
+ukhls_indi13$partner[ukhls_indi13$m_mastat_dv%in%c(2,3,10)]<-1
 
 #makeing cohab a binary variable
 ukhls_indi13$cohab<-c(0)
-ukhls_indi13$cohab[ukhls_indi13$m_marstat_dv%in%c(2)]<-1
+ukhls_indi13$cohab[ukhls_indi13$m_mastat_dv%in%c(10)]<-1
 
 #making married a binary variable
 ukhls_indi13$mar<-c(0)
-ukhls_indi13$mar[ukhls_indi13$m_marstat_dv%in%c(1)]<-1
+ukhls_indi13$mar[ukhls_indi13$m_mastat_dv%in%c(2,3)]<-1
 #child-bearing within wedlock
 ukhls_indi13$wedch<-c(0)
 ukhls_indi13$wedch[ukhls_indi13$mar==1 & ukhls_indi13$m_nchild_dv !=0]<-1
+
+
+#urban
+#table(ukhls_indi13$m_urban_dv)
+ukhls_indi13$m_urban_dv[ukhls_indi13$m_urban_dv%in%c(-9)]<-NA
+
+
+#lnage
+ukhls_indi13$lnage<-log(ukhls_indi13$m_age_dv)
+
+#income
+ukhls_indi13$m_fimngrs_dv[ukhls_indi13$m_fimngrs_dv<0]<-NA
+#lnincome
+ukhls_indi13$lnincome<-log(ukhls_indi13$m_fimngrs_dv)
+ukhls_indi13$lnincome[ukhls_indi13$lnincome==-Inf]<-NA
+
+
 #unmarried women
-
-
 #married women
+```
 
+# Route out (multinomial):
+
+nchresp responsible for a child
+
+nchild_dv have a child in the hh
+
+whether son/daughter alive: using lvrel 3!!!
+
+-   **ohch 16**: children under 16 not living in hh
+
+Are any of your children living outside the household aged under 16?
+
+#### **Question universe:**
+
+if LVRel = 3 (If son(s)/daughter(s) alive)
+
+**consider whether father living with their children under 16 (n=220), but not consider mothers (n=49) within the age range 25 to 50**
+
+```{r}
+##patterns of home-leaving 
+ukhls_indi13$homele<-c(1)
+
+##route out 1: to live with a partner and children ========================
+###f
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==2 & #females
+                            ukhls_indi13$m_mastat_dv%in%c(2,3,10)& #married or cohabiting
+                            #ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv!=0]<-2 #have a child under 16 in the hh
+###m
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==1 & #males
+                            ukhls_indi13$m_mastat_dv%in%c(2,3,10)& #married or cohabiting
+                            ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv!=0]<-2 #have a child under 16 in the hh
+
+##route out 2: to live with a partner but no children=====================
+###f
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==2 & #females
+                            ukhls_indi13$m_mastat_dv%in%c(2,3,10) & #married or cohabiting
+                            #ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+###m
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==1 & #males
+                            ukhls_indi13$m_mastat_dv%in%c(2,3,10) & #married or cohabiting
+                            ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+##route out 3: forming a female-headed family============================
+##for females
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                    ukhls_indi13$m_sex_dv==2 & #females
+                            ukhls_indi13$m_mastat_dv!=2 & #not married
+                            ukhls_indi13$m_mastat_dv!=3 & #not married
+                            ukhls_indi13$m_mastat_dv!=10 & #no partner
+                            ukhls_indi13$m_nchild_dv!=0]<-4 #have a dep child in hh
+
+
+##for males
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                    ukhls_indi13$m_sex_dv==1 & #males
+                    ukhls_indi13$ohch16==1 # (at least one) children under 16 not living in hh
+                    ]<-4
+
+
+##route out 4: to autonomous living =====================
+###f
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==2 & #females
+                            ukhls_indi13$m_mastat_dv!=2 & #not married
+                            ukhls_indi13$m_mastat_dv!=3 & #not married
+                            ukhls_indi13$m_mastat_dv!=10 & #no partner
+                            #ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv==0]<-5 # not have a dep in the hh
+
+ukhls_indi13$homele[ukhls_indi13$lvpa==0 & # not living with parents
+                            ukhls_indi13$m_sex_dv==1 & #males
+                            ukhls_indi13$m_mastat_dv!=2 & #not married
+                            ukhls_indi13$m_mastat_dv!=3 & #not married
+                            ukhls_indi13$m_mastat_dv!=10 & #no partner
+                            ukhls_indi13$ohch16==0 & # no child under 16 not living with res
+                            ukhls_indi13$m_nchild_dv==0]<-5 # not have a dep in the hh
+
+
+# check:table(ukhls_indi13$m_nchild_dv,ukhls_indi13$m_nchresp)
+
+```
+
+```{r}
+#for females who have children under 16 not living with them
+test<-ukhls_indi13[which(ukhls_indi13$lvpa==0 & ukhls_indi13$m_sex_dv==2 & ukhls_indi13$ohch16==1),]
+test2<-ukhls_indi13[which(ukhls_indi13$lvpa==0 & ukhls_indi13$m_sex_dv==1 & ukhls_indi13$ohch16==1),]
+
+dim(test)
+dim(test2)
+
+table(ukhls_indi13$m_sex_dv,ukhls_indi13$ohch16)
+ 
+##=======================================================for single parents males n females
+sin<-ukhls_indi13[which(ukhls_indi13$lvpa==0 & ukhls_indi13$m_sex_dv==2& ukhls_indi13$m_mastat_dv!=2& ukhls_indi13$m_mastat_dv!=3& ukhls_indi13$m_mastat_dv!=10 & ukhls_indi13$m_nchild_dv!=0),]
+
+sin2<-ukhls_indi13[which(ukhls_indi13$lvpa==0 & ukhls_indi13$m_sex_dv==1& ukhls_indi13$m_mastat_dv!=2& ukhls_indi13$m_mastat_dv!=3& ukhls_indi13$m_mastat_dv!=10 & ukhls_indi13$m_nchild_dv!=0),]
+
+##===============================still use female-headed family if father live separately with the child
+age<-ukhls_indi13[which(ukhls_indi13$m_age_dv%in%c(25:50)),]
+table(age$ohch16,age$m_sex_dv)
+table(age$homele,age$m_sex_dv)
+
+##most of the depedent children not living with females are their grandchildren!!!
+table(test$m_age_dv)
+
+##for females who not living with their children under 16 age 25 to 50 (num 49, compared with men 220)
+agefab<-age[which(age$m_sex_dv==2 & age$ohch16==1),]
+table(agefab$m_mastat_dv)
+table(agefab$lvpa)
+
+##check whether all fathers not living with their children are included
+c<-age[which(age$lvpa==0 & age$m_sex_dv==1 & age$ohch16==1),]
+```
+
+# Nonmarital childbearing (multinomial)
+
+no children
+
+have children under 16 (no married)
+
+have children under 16 (married)
+
+```{r}
 
 ```
 
@@ -104,13 +261,25 @@ design<-svydesign(id=~m_psu, weights=~m_indinui_xw,strata =~m_strata,data=ukhls_
 #design<-ukhls_indi13%>%srvyr::as_survey(weights=m_indpxui_xw)
 
 
-
-
 #subset the data for respondents aged 25-50
 ukhls13<-subset(design, m_age_dv%in%c(25:50))
-ukhls13_child<-subset(design, child%in%c(1))
+#ukhls13_child<-subset(ukhls13, child%in%c(1))
+
 
 ```
+
+## Model building
+
+### multinomial logit
+
+```{r}
+library(svyVGAM)
+#for home-leaving patterns
+m0<-svyVGAM::svy_vglm(homele~ses*m_sex_dv+ses*panum+lnage+m_urban_dv+lnincome,family=multinomial(refLevel=1), design=ukhls13,na.action=na.omit) 
+
+```
+
+Drafts
 
 ```{r}
 m<-svyglm(parents~ses+m_age_dv+m_sex_dv,design=ukhls13,na.action = na.omit)
