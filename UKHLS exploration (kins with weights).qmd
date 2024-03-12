@@ -4,19 +4,19 @@ format: html
 editor: visual
 ---
 
-```{r,cache=T}
-##reading ukhls data with masee variables
-setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
-#ukhls_indi1<-read.table("a_indresp.tab",header=T)
-
-ukhls_indi13<-read.table("m_indresp.tab",header=T)
-```
-
-# Cleaning Wave 13
+![](images/82165a42ab367d2aeb790740b06c96e.png)
 
 ```{r}
-#weighting the ukhls13 with m_indpxui_xw
+#houskeeping
+#Clear objects already in the environment – start with a clean slate
+rm(list=ls())
+
+#loading libraries
 library(tidyverse)
+library(sjlabelled)
+library(desctable)
+library(summarytools)
+library(naniar)
 library(survey)
 library(svrep)
 library(Hmisc)
@@ -26,6 +26,20 @@ library(haven)
 library(catregs)
 library(margins)
 library(modelsummary)
+```
+
+```{r,cache=T}
+##reading ukhls data with masee variables
+setwd("D:\\r git projects\\ox-R\\final essay\\Understanding Society Waves 2009-2022 and Harmonised BHPS Waves 1991-2009\\UKDA-6614-tab\\tab\\ukhls")
+#ukhls_indi1<-read.table("a_indresp.tab",header=T)
+
+ukhls_indi13<-read.table("m_indresp.tab",header=T)
+```
+
+# Cleaning n Weighting Wave 13
+
+```{r}
+#removing missing values n weighting the ukhls13 with m_indpxui_xw
 
 #no missing in lvrel
 ukhls_indi13$m_lvrel1[ukhls_indi13$m_lvrel1%in%c(-7,-2,-1)]<-NA
@@ -133,7 +147,7 @@ Are any of your children living outside the household aged under 16?
 
 if LVRel = 3 (If son(s)/daughter(s) alive)
 
-**consider whether father living with their children under 16 (n=220), but not consider mothers (n=49) within the age range 25 to 50**
+**consider whether father not living with their children under 16 (n=220), but not consider mothers (n=49) within the age range 25 to 50**
 
 ```{r}
 ##patterns of home-leaving 
