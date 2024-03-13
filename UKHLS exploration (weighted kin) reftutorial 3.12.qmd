@@ -111,12 +111,70 @@ rm(i,missval)
 ```
 
 ```{r}
+#preparing variables for analysis (wave 1)
+#num of parents (not censored)
+a_indresp$parentnum<-a_indresp$a_lvrel1+a_indresp$a_lvrel2+a_indresp$a_pns1pno+a_indresp$a_pns2pno
+
+#having one & two or more parents (censored)
+a_indresp$parents<-c(0)
+a_indresp$parents[a_indresp$parentnum==1]<-1
+a_indresp$parents[a_indresp$parentnum>1]<-2
+
+#living with parents or not (biological/step/adoptive)
+#binary
+a_indresp$lvpam<-c(0)
+a_indresp$lvpam[a_indresp$a_pns1pno!=0]<-1
+a_indresp$lvpaf<-c(0)
+a_indresp$lvpaf[a_indresp$a_pns2pno!=0]<-1
+a_indresp$lvpa<-a_indresp$lvpam+a_indresp$lvpaf
+a_indresp<-a_indresp%>%select(-lvpam,-lvpaf)
+
+#high ses and low ses (Degree/Other higher)
+a_indresp$ses<-c(0)
+a_indresp$ses[a_indresp$a_hiqual_dv%in%c(1,2)]<-1
+
+#making nchild_dv a binary variable
+a_indresp$child<-c(0)
+a_indresp$child[a_indresp$a_nchild_dv>=1]<-1
+
+#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
+a_indresp$partner<-c(0)
+a_indresp$partner[a_indresp$a_mastat_dv%in%c(2,3,10)]<-1
+
+#makeing cohabitation a binary variable
+a_indresp$cohab<-c(0)
+a_indresp$cohab[a_indresp$a_mastat_dv%in%c(10)]<-1
+
+#making married a binary variable
+a_indresp$mar<-c(0)
+a_indresp$mar[a_indresp$a_mastat_dv%in%c(2,3)]<-1
+
+#logarithm of age
+a_indresp$lnage<-log(a_indresp$a_age_dv)
+
+#logarithm of income
+a_indresp$lnincome<-log(a_indresp$a_fimnnet_dv)
+#add 1 to all income values to avoid -inf in log transformation
+a_indresp$incomeadd<-a_indresp$a_fimnnet_dv+1
+a_indresp$lnincome<-log(a_indresp$incomeadd)
+a_indresp<-a_indresp%>%select(-incomeadd)
+
+```
+
+```{r}
 #wave 13
 m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
  select(m_hidp, pidp, m_mastat_dv, m_strata, m_psu, m_hhorig, 
          m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
          m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
          m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv )
+```
+
+```{r}
+view(dfSummary(m_indresp)) 
+descr(m_indresp, headings = FALSE, stats = "common", transpose = TRUE)
+names(m_indresp)
+summary(m_indresp)
 ```
 
 ```{r}
@@ -159,20 +217,71 @@ table(m_indresp$m_pns2pno)
 table(m_indresp$m_nchild_dv)
 table(m_indresp$m_nchresp)
 table(m_indresp$m_urban_dv)
+
+rm(i,missval)
+```
+
+```{r}
+#preparing variables for analysis (wave 13)
+
+#num of parents (not censored)
+m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$m_lvrel9+m_indresp$m_lvrel10+m_indresp$m_pns1pno+m_indresp$m_pns2pno
+
+#having one & two or more parents (censored)
+m_indresp$parents<-c(0)
+m_indresp$parents[m_indresp$parentnum==1]<-1
+m_indresp$parents[m_indresp$parentnum>1]<-2
+
+#living with parents or not (biological/step/adoptive)
+m_indresp$lvpam<-c(0)
+m_indresp$lvpam[m_indresp$m_pns1pno!=0]<-1
+m_indresp$lvpaf<-c(0)
+m_indresp$lvpaf[m_indresp$m_pns2pno!=0]<-1
+m_indresp$lvpa<-m_indresp$lvpam+m_indresp$lvpaf
+m_indresp<-m_indresp%>%select(-lvpam,-lvpaf)
+#binary
+
+
+#high ses and low ses (Degree/Other higher)
+m_indresp$ses<-c(0)
+m_indresp$ses[m_indresp$m_hiqual_dv%in%c(1,2)]<-1
+
+#making nchild_dv a binary variable
+m_indresp$child<-c(0)
+m_indresp$child[m_indresp$m_nchild_dv>=1]<-1
+
+#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
+m_indresp$partner<-c(0)
+m_indresp$partner[m_indresp$m_mastat_dv%in%c(2,3,10)]<-1
+
+#makeing cohabitation a binary variable
+m_indresp$cohab<-c(0)
+m_indresp$cohab[m_indresp$m_mastat_dv%in%c(10)]<-1
+
+#making married a binary variable
+m_indresp$mar<-c(0)
+m_indresp$mar[m_indresp$m_mastat_dv%in%c(2,3)]<-1
+
+#logarithm of age
+m_indresp$lnage<-log(m_indresp$m_age_dv)
+
+#logarithm of income
+#add 1 to all income values to avoid -inf in log transformation
+m_indresp$incomeadd<-m_indresp$m_fimnnet_dv+1
+m_indresp$lnincome<-log(m_indresp$incomeadd)
+m_indresp$lnincometest<-log(m_indresp$m_fimnnet_dv)
+m_indresp<-m_indresp%>%select(-incomeadd,-lnincometest)
 ```
 
 ### Adopt the weightings
 
 ```{r}
-rm(i,missval)
-
 options(survey.lonely.psu="adjust")
 
 svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
                          weights=~a_indinus_xw, data=a_indresp)
 
-svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata, 
-+                           weights=~m_indinui_xw, data=m_indresp)
+svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indinui_xw, data=m_indresp)
 
 #subset the data for respondents aged 25-50
 svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(25:50))
@@ -251,10 +360,15 @@ svymean(~a_fimnnet_dv,design=svy_indresp1y,na.rm=TRUE)
 
 #histogram
 svyhist(~a_fimnnet_dv,design=svy_indresp1y,na.rm=TRUE)
+#histogram of income distribution after log transformation
+svyhist(~lnincome,design=svy_indresp1y,na.rm=TRUE)
 
 #boxplots of income (including the plot for separate genders)
 svyboxplot(~a_fimnnet_dv~1, svy_indresp1y, all.outliers=TRUE)
 svyboxplot(~a_fimnnet_dv~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
+#logged
+svyboxplot(~lnincome~1, svy_indresp1y, all.outliers=TRUE)
+svyboxplot(~lnincome~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
 
 #=======================================================================================================================================================================================================================
 #weighted racial compositions
@@ -324,11 +438,15 @@ svymean(~m_fimnnet_dv,design=svy_indresp2y,na.rm=TRUE)
 
 #histogram
 svyhist(~m_fimnnet_dv,design=svy_indresp2y,na.rm=TRUE)
+#histogram of income distribution after log transformation
+svyhist(~lnincome,design=svy_indresp2y,na.rm=TRUE)
 
 #boxplots of income (including the plot for separate genders)
 svyboxplot(~m_fimnnet_dv~1, svy_indresp2y, all.outliers=TRUE)
 svyboxplot(~m_fimnnet_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
-
+#logged
+svyboxplot(~lnincome~1, svy_indresp2y, all.outliers=TRUE)
+svyboxplot(~lnincome~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
 #=======================================================================================================================================================================================================================
 #weighted racial compositions
 svytable(~m_racel_dv, design = svy_indresp2y)
@@ -346,7 +464,9 @@ svyboxplot(~m_age_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
 Model 1
 
 ```{r}
-
+m1a<-svyglm(parents~ses+a_age_dv+factor(a_sex_dv)+lnincome+factor(a_racel_dv),design=svy_indresp1y,na.action=na.omit,family=poisson())
+        
+m1b<-svyglm(parents~ses+m_age_dv+factor(m_sex_dv)+lnincome+factor(m_racel_dv),design=svy_indresp2y,na.action=na.omit,family=poisson())
 ```
 
 Model 2
