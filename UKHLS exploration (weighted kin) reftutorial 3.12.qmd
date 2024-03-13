@@ -1,0 +1,382 @@
+---
+title: "UKHLS exploration (weighted kin) reftutorial 3.12"
+format: html
+editor: visual
+---
+
+## Reading and cleaning data
+
+```{r}
+#houskeeping
+#Clear objects already in the environment – start with a clean slate
+rm(list=ls())
+
+#loading libraries
+library(tidyverse)
+library(sjlabelled)
+library(desctable)
+library(summarytools)
+library(naniar)
+library(survey)
+library(svrep)
+library(Hmisc)
+library(srvyr)
+library(marginaleffects)
+library(haven)
+library(catregs)
+library(margins)
+library(modelsummary)
+library(zoo)
+```
+
+```{r}
+#wave 1 
+inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
+
+a_indresp <- read_dta(file=paste0(inpath, "ukhls/a_indresp.dta")) %>%
+ select(a_hidp, pidp, a_mastat_dv, a_strata, a_psu, a_hhorig, 
+         a_indinus_xw,a_indpxus_xw, a_ind5mus_xw,a_ivfio, a_sampst,
+         a_age_dv, a_sex_dv, a_hiqual_dv, a_paygu_dv, a_country,
+         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_nchresp,a_urban_dv )
+
+
+```
+
+Some initial explorations:
+
+```{r}
+#wave 1: examine the data frame and variables of interest, including their distribution
+view(dfSummary(a_indresp)) 
+descr(a_indresp, headings = FALSE, stats = "common", transpose = TRUE)
+names(a_indresp)
+summary(a_indresp)
+```
+
+```{r}
+# check the summary stats for the weights variables for different types of 
+# respondents (first creating a smaller temporary df)
+
+# Check: Are individual response weights 0 for proxy respondents?
+a_indw <- a_indresp %>% 
+  select(a_indinus_xw, a_indpxus_xw, a_ivfio, a_hhorig, a_sampst)
+
+stby(data = a_indw, INDICES = a_indw$a_ivfio, 
+     FUN = descr, stats = c("mean", "sd", "min", "max"),  
+     transpose = TRUE)
+
+# Check: Are all wave 1 weights zero for TSMs? NB. In wave 1, the only reason to# be a TSM is to be a non ethnic minority in the EMBS sample.
+stby(data = a_indw, INDICES = a_indw$a_sampst, 
+     FUN = descr, stats = c("mean", "sd", "min", "max"),  
+     transpose = TRUE)
+```
+
+```{r}
+rm(a_indw)
+# Confirm that there are many PSUs and strata in the GB sample but only 1 strata in the Northern Ireland(NI, hhorig==3) sample 
+tmp_df <- a_indresp %>% select(a_psu, a_strata, a_hhorig) 
+stby(data = tmp_df, INDICES = tmp_df$a_hhorig, FUN = descr, 
+     stats = c("mean", "sd", "min", "max"), transpose = TRUE)
+```
+
+#cleaning the data
+
+```{r}
+rm(tmp_df)
+# replace missing values (integers -9 to -1) with NA
+missval <- c(-9, -8, -7, -2, -1)
+for (i in 1:5) {
+  a_indresp <- a_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+
+#check NA
+table(a_indresp$a_age_dv)
+table(a_indresp$a_sex_dv)
+a_indresp$a_sex_dv[a_indresp$a_sex_dv==0]<-NA
+table(a_indresp$a_hiqual_dv)
+table(a_indresp$a_paygu_dv<0)
+table(a_indresp$a_country)
+table(a_indresp$a_mastat_dv)
+table(a_indresp$a_racel_dv)
+table(a_indresp$a_fimnnet_dv<0)
+a_indresp$a_fimnnet_dv[a_indresp$a_fimnnet_dv<0]<-NA
+table(a_indresp$a_lvrel1)
+table(a_indresp$a_lvrel2)
+table(a_indresp$a_pns1pno)
+table(a_indresp$a_pns2pno)
+table(a_indresp$a_nchild_dv)
+table(a_indresp$a_nchresp)
+table(a_indresp$a_urban_dv)
+
+rm(i,missval)
+```
+
+```{r}
+#wave 13
+m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
+ select(m_hidp, pidp, m_mastat_dv, m_strata, m_psu, m_hhorig, 
+         m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
+         m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv )
+```
+
+```{r}
+# Check: Are individual response weights 0 for proxy respondents?
+m_indw <- m_indresp %>% 
+  select(m_indpxui_xw,m_indinui_xw, m_ivfio, m_hhorig, m_sampst)
+
+stby(data = m_indw, INDICES = m_indw$m_ivfio, 
+     FUN = descr, stats = c("mean", "sd", "min", "max"),  
+     transpose = TRUE)
+
+rm(m_indw)
+
+```
+
+```{r}
+# replace missing values (integers -9 to -1) with NA
+missval <- c(-9, -8, -7, -2, -1)
+for (i in 1:5) {
+  m_indresp <- m_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+
+#check NA
+table(m_indresp$m_age_dv)
+table(m_indresp$m_sex_dv)
+m_indresp$m_sex_dv[m_indresp$m_sex_dv==0]<-NA
+table(m_indresp$m_hiqual_dv)
+table(m_indresp$m_paygu_dv<0)
+table(m_indresp$m_country)
+table(m_indresp$m_mastat_dv)
+table(m_indresp$m_racel_dv)
+table(m_indresp$m_fimnnet_dv<0)
+m_indresp$m_fimnnet_dv[m_indresp$m_fimnnet_dv<0]<-NA
+table(m_indresp$m_lvrel1)
+table(m_indresp$m_lvrel2)
+table(m_indresp$m_lvrel9)
+table(m_indresp$m_lvrel10)
+table(m_indresp$m_pns1pno)
+table(m_indresp$m_pns2pno)
+table(m_indresp$m_nchild_dv)
+table(m_indresp$m_nchresp)
+table(m_indresp$m_urban_dv)
+```
+
+### Adopt the weightings
+
+```{r}
+rm(i,missval)
+
+options(survey.lonely.psu="adjust")
+
+svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=a_indresp)
+
+svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata, 
++                           weights=~m_indinui_xw, data=m_indresp)
+
+#subset the data for respondents aged 25-50
+svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(25:50))
+
+svy_indresp2y<-subset(svy_indresp2, m_age_dv%in%c(25:50))
+
+```
+
+```{r}
+#estimating design effects
+# calculate the mean pay for the sample, accounting for complex survey design
+svymean(~a_paygu_dv,design=svy_indresp1,na.rm=TRUE,deff=TRUE)
+
+#warning: deff not for the subsets of data
+svymean(~a_paygu_dv,design=svy_indresp1y,na.rm=TRUE,deff=TRUE)
+
+# compute DEFT: Remove # and replace "DEFF" in the command "sqrt(DEFF)" with value of DEFF computed in "svymean(~a_paygu_dv,svy_indresp,na.rm=TRUE,deff=TRUE)" 
+#sqrt(DEFF)
+
+#the Deff is 35.39. This means that a sample drawn using the current sampling plan needs to be 35 times the size needed if the sample was collected via an SRS
+```
+
+## Analyzing data (Cross-sectional)
+
+### cross-sectional comparisons of two waves
+
+Descriptive statistics (wave 1)
+
+```{r}
+#=======================================================================================================================================================================================================================
+#weighted number of children
+svytable(~a_nchild_dv, design = svy_indresp1y)
+
+#=======================================================================================================================================================================================================================
+#weighted sex 1:male, 2: female
+svytable(~a_sex_dv, design = svy_indresp1y)
+#The logit option fits a logistic regression model and computes a Wald-type interval on the log-odds scale, which is then transformed to the probability scale.
+svyciprop(~I(a_sex_dv==2), svy_indresp1y, method="logit")
+
+#weighted number of children by sex
+svytable(~a_sex_dv+a_nchild_dv, design = svy_indresp1y)
+#barplot for the average weighted number of children by sex
+barplt<-svyby(~a_nchild_dv,~a_sex_dv,design=svy_indresp1y,na = TRUE, svymean)
+barplot(barplt,beside=TRUE,legend=TRUE)
+rm(barplt)
+#a chi-squared test of weighted number of children by sex
+svychisq(~a_sex_dv+a_nchild_dv, svy_indresp1y, statistic="adjWald")
+
+
+#=======================================================================================================================================================================================================================
+#weighted education levels
+svytable(~a_hiqual_dv, design = svy_indresp1y)
+#weighted education levels by sex
+svytable(~a_sex_dv+a_hiqual_dv, design = svy_indresp1y)
+#a chi-squared test of weighted education levels by sex
+svychisq(~a_sex_dv+a_hiqual_dv, svy_indresp1y, statistic="adjWald")
+
+#=======================================================================================================================================================================================================================
+#weighted marital status
+svytable(~a_mastat_dv, design = svy_indresp1y)
+#weighted marital status by sex
+svytable(~a_sex_dv+a_mastat_dv, design = svy_indresp1y)
+#a chi-squared test of weighted marital status by sex
+svychisq(~a_sex_dv+a_mastat_dv, svy_indresp1y, statistic="adjWald")
+
+#=======================================================================================================================================================================================================================
+#weighted residential areas (rural/urban)  1:urban, 2:rural
+svytable(~a_urban_dv, design = svy_indresp1y)
+svyciprop(~I(a_urban_dv==2), svy_indresp1y, method="logit")
+
+
+#=======================================================================================================================================================================================================================
+#weighted mean monthly income (after tax)
+svymean(~a_fimnnet_dv,design=svy_indresp1y,na.rm=TRUE)
+#??svyquantile(~a_fimnnet_dv, design = svy_indresp1y, na.rm=TRUE, c(.25,.5,.75),ci=TRUE)
+
+#histogram
+svyhist(~a_fimnnet_dv,design=svy_indresp1y,na.rm=TRUE)
+
+#boxplots of income (including the plot for separate genders)
+svyboxplot(~a_fimnnet_dv~1, svy_indresp1y, all.outliers=TRUE)
+svyboxplot(~a_fimnnet_dv~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
+
+#=======================================================================================================================================================================================================================
+#weighted racial compositions
+svytable(~a_racel_dv, design = svy_indresp1y)
+
+#=======================================================================================================================================================================================================================
+#weighted age distribution
+svymean(~a_age_dv,design=svy_indresp1y,na.rm=TRUE)
+#histogram
+svyhist(~a_age_dv,design=svy_indresp1y,na.rm=TRUE)
+#boxplots of age (including the plot for separate genders)
+svyboxplot(~a_age_dv~1, svy_indresp1y, all.outliers=TRUE)
+svyboxplot(~a_age_dv~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
+
+
+```
+
+Descriptive statistics (wave 13)
+
+```{r}
+#=======================================================================================================================================================================================================================
+#weighted number of children
+svytable(~m_nchild_dv, design = svy_indresp2y)
+
+#=======================================================================================================================================================================================================================
+#weighted sex 1:male, 2: female
+svytable(~m_sex_dv, design = svy_indresp2y)
+#The logit option fits a logistic regression model and computes a Wald-type interval on the log-odds scale, which is then transformed to the probability scale.
+svyciprop(~I(m_sex_dv==2), svy_indresp2y, method="logit")
+
+#weighted number of children by sex
+svytable(~m_sex_dv+m_nchild_dv, design = svy_indresp2y)
+#barplot for the average weighted number of children by sex
+barplt<-svyby(~m_nchild_dv,~m_sex_dv,design=svy_indresp2y,na = TRUE, svymean)
+barplot(barplt,beside=TRUE,legend=TRUE)
+rm(barplt)
+#a chi-squared test of weighted number of children by sex**
+##???svychisq(~m_sex_dv+m_nchild_dv, svy_indresp2y, statistic="adjWald")Error in solve.default(V[use, use], Y[use]) : Lapack例行程序dgesv: 系统正好是奇异的: U[7,7] = 0
+
+
+#=======================================================================================================================================================================================================================
+#weighted education levels
+svytable(~m_hiqual_dv, design = svy_indresp2y)
+#weighted education levels by sex
+svytable(~m_sex_dv+m_hiqual_dv, design = svy_indresp2y)
+#a chi-squared test of weighted education levels by sex
+svychisq(~m_sex_dv+m_hiqual_dv, svy_indresp2y, statistic="adjWald")
+
+#=======================================================================================================================================================================================================================
+#weighted marital status
+svytable(~m_mastat_dv, design = svy_indresp2y)
+#weighted marital status by sex
+svytable(~m_sex_dv+m_mastat_dv, design = svy_indresp2y)
+#a chi-squared test of weighted marital status by sex
+svychisq(~m_sex_dv+m_mastat_dv, svy_indresp2y, statistic="adjWald")
+
+#=======================================================================================================================================================================================================================
+#weighted residential areas (rural/urban)  1:urban, 2:rural
+svytable(~m_urban_dv, design = svy_indresp2y)
+svyciprop(~I(m_urban_dv==2), svy_indresp2y, method="logit")
+
+
+#=======================================================================================================================================================================================================================
+#weighted mean monthly income (after tax)
+svymean(~m_fimnnet_dv,design=svy_indresp2y,na.rm=TRUE)
+#??svyquantile(~m_fimnnet_dv, design = svy_indresp2y, na.rm=TRUE, c(.25,.5,.75),ci=TRUE)Can't merge the outer name `ci` with a vector of length > 1.Please supply a `.name_spec` specification. 
+
+#histogram
+svyhist(~m_fimnnet_dv,design=svy_indresp2y,na.rm=TRUE)
+
+#boxplots of income (including the plot for separate genders)
+svyboxplot(~m_fimnnet_dv~1, svy_indresp2y, all.outliers=TRUE)
+svyboxplot(~m_fimnnet_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
+
+#=======================================================================================================================================================================================================================
+#weighted racial compositions
+svytable(~m_racel_dv, design = svy_indresp2y)
+
+#=======================================================================================================================================================================================================================
+#weighted age distribution
+svymean(~m_age_dv,design=svy_indresp2y,na.rm=TRUE)
+#histogram
+svyhist(~m_age_dv,design=svy_indresp2y,na.rm=TRUE)
+#boxplots of age (including the plot for separate genders)
+svyboxplot(~m_age_dv~1, svy_indresp2y, all.outliers=TRUE)
+svyboxplot(~m_age_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
+```
+
+Model 1
+
+```{r}
+
+```
+
+Model 2
+
+```{r}
+
+```
+
+Model 3
+
+```{r}
+
+```
+
+Model 4
+
+```{r}
+
+```
+
+Model 5
+
+```{r}
+
+```
+
+### matching parents and their children for analysis
+
+### matching couples for analysis
+
+### finding out who are the leavers or stayers
+
+## Analyzing data (Longitudinal)
