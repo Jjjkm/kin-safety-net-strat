@@ -13,6 +13,7 @@ rm(list=ls())
 
 #loading libraries
 library(tidyverse)
+library(svyVGAM)
 library(sjlabelled)
 library(desctable)
 library(summarytools)
@@ -29,6 +30,8 @@ library(modelsummary)
 library(zoo)
 ```
 
+#### wave 1
+
 ```{r}
 #wave 1 
 inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
@@ -37,7 +40,7 @@ a_indresp <- read_dta(file=paste0(inpath, "ukhls/a_indresp.dta")) %>%
  select(a_hidp, pidp, a_mastat_dv, a_strata, a_psu, a_hhorig, 
          a_indinus_xw,a_indpxus_xw, a_ind5mus_xw,a_ivfio, a_sampst,
          a_age_dv, a_sex_dv, a_hiqual_dv, a_paygu_dv, a_country,
-         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_nchresp,a_urban_dv )
+         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_nchresp,a_urban_dv,a_ohch16)
 
 
 ```
@@ -106,6 +109,7 @@ table(a_indresp$a_pns2pno)
 table(a_indresp$a_nchild_dv)
 table(a_indresp$a_nchresp)
 table(a_indresp$a_urban_dv)
+table(a_indresp$a_ohch16)
 
 rm(i,missval)
 ```
@@ -121,13 +125,16 @@ a_indresp$parents[a_indresp$parentnum==1]<-1
 a_indresp$parents[a_indresp$parentnum>1]<-2
 
 #living with parents or not (biological/step/adoptive)
-#binary
 a_indresp$lvpam<-c(0)
 a_indresp$lvpam[a_indresp$a_pns1pno!=0]<-1
 a_indresp$lvpaf<-c(0)
 a_indresp$lvpaf[a_indresp$a_pns2pno!=0]<-1
 a_indresp$lvpa<-a_indresp$lvpam+a_indresp$lvpaf
 a_indresp<-a_indresp%>%select(-lvpam,-lvpaf)
+
+#binary
+a_indresp$lvpab<-c(0)
+a_indresp$lvpab[a_indresp$lvpa!=0]<-1
 
 #high ses and low ses (Degree/Other higher)
 a_indresp$ses<-c(0)
@@ -162,12 +169,112 @@ a_indresp<-a_indresp%>%select(-incomeadd)
 ```
 
 ```{r}
+#preparing dependent variables for multinomial regression (wave 1) wech
+
+
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 1) rout
+##patterns of home-leaving 
+
+a_indresp$homele<-c(0)
+
+###living with parents(including those who have children)========================
+a_indresp$homele[a_indresp$lvpa!=0]<-1
+
+##route out 1: to live with a partner and children ==============================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-2 #have a child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-2#have a child under 16 in the hh
+
+
+
+##route out 2: to live with a partner but no children=====================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+##route out 3: forming a female-headed family============================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv!=2 & #not married
+                         a_indresp$a_mastat_dv!=3 & #not in civil partnership
+                         a_indresp$a_mastat_dv!=10 & #not in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-4 #have a dependent child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & # not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_ohch16%in%c(1,2)]<-4 # (at least one) children under 16 not living in the same hh
+
+
+##route out 4: to autonomous living =====================
+###females
+a_indresp$homele[a_indresp$lvpa==0 &
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv!=2 & #not married
+                         a_indresp$a_mastat_dv!=3 & #not in civil partnership
+                         a_indresp$a_mastat_dv!=10 & #not in cohabitation
+                         a_indresp$a_mastat_dv%in%c(1,4,5,6,7)&
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 &
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv!=2 & #not married
+                         a_indresp$a_mastat_dv!=3 & #not in civil partnership
+                         a_indresp$a_mastat_dv!=10 & #not in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+
+attr(a_indresp$homele,"labels")<-c(
+"note: variables marked as missing/inapplicable/proxy/refusal/don't know are treated as not having dependent children under 16 outside the household",
+"0:others(not living with parents: for females having at least one dependent child under 16 not living together; for males being single/separated from partners/divorced and living with at least one dependent child under 16; for both sexes if they have NA values in mastat_dv and nchild_dv);", "1:living with parents(including those who have children or partners);",
+"2:route out 1: to live with a partner and children;",
+"3:route out 2: to live with a partner but no children;",
+"4:route out 3: forming a female-headed family",
+"5:route out 4: to autonomous living")
+
+```
+
+#### wave 13
+
+```{r}
 #wave 13
 m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
  select(m_hidp, pidp, m_mastat_dv, m_strata, m_psu, m_hhorig, 
          m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
          m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
-         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv )
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv,m_ohch16)
 ```
 
 ```{r}
@@ -217,6 +324,7 @@ table(m_indresp$m_pns2pno)
 table(m_indresp$m_nchild_dv)
 table(m_indresp$m_nchresp)
 table(m_indresp$m_urban_dv)
+table(m_indresp$m_ohch16)
 
 rm(i,missval)
 ```
@@ -240,6 +348,8 @@ m_indresp$lvpaf[m_indresp$m_pns2pno!=0]<-1
 m_indresp$lvpa<-m_indresp$lvpam+m_indresp$lvpaf
 m_indresp<-m_indresp%>%select(-lvpam,-lvpaf)
 #binary
+m_indresp$lvpab<-c(0)
+m_indresp$lvpab[m_indresp$lvpa!=0]<-1
 
 
 #high ses and low ses (Degree/Other higher)
@@ -273,6 +383,152 @@ m_indresp$lnincometest<-log(m_indresp$m_fimnnet_dv)
 m_indresp<-m_indresp%>%select(-incomeadd,-lnincometest)
 ```
 
+```{r}
+#preparing dependent variables for multinomial regression (wave 13) wech
+
+
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 13) rou
+##patterns of home-leaving 
+m_indresp$homele<-c(0)
+
+###living with parents(including those who have children or partners)============
+m_indresp$homele[m_indresp$lvpa!=0]<-1
+
+##route out 1: to live with a partner and children ==============================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-2 #have a child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-2#have a child under 16 in the hh
+
+
+
+##route out 2: to live with a partner but no children=====================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+##route out 3: forming a female-headed family============================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv!=2 & #not married
+                         m_indresp$m_mastat_dv!=3 & #not in civil partnership
+                         m_indresp$m_mastat_dv!=10 & #not in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-4 #have a dependent child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & # not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_ohch16%in%c(1,2)]<-4 # (at least one) children under 16 not living in the same hh
+
+
+##route out 4: to autonomous living =====================
+###females
+m_indresp$homele[m_indresp$lvpa==0 &
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv!=2 & #not married
+                         m_indresp$m_mastat_dv!=3 & #not in civil partnership
+                         m_indresp$m_mastat_dv!=10 & #not in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 &
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv!=2 & #not married
+                         m_indresp$m_mastat_dv!=3 & #not in civil partnership
+                         m_indresp$m_mastat_dv!=10 & #not in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+attr(m_indresp$homele,"labels")<-c(
+"note: variables marked as missing/inapplicable/proxy/refusal/don't know are treated as not having dependent children under 16 outside the household",
+"0:others(not living with parents: for females having at least one dependent child under 16 not living together; for males being single/separated from partners/divorced and living with at least one dependent child under 16; for both sexes if they have NA values in mastat_dv and nchild_dv);", "1:living with parents(including those who have children or partners);",
+"2:route out 1: to live with a partner and children;",
+"3:route out 2: to live with a partner but no children;",
+"4:route out 3: forming a female-headed family",
+"5:route out 4: to autonomous living")
+
+```
+
+```{r}
+##checking for the variable homele
+table(a_indresp$a_ohch16,a_indresp$a_sex_dv)
+table(m_indresp$m_ohch16,m_indresp$m_sex_dv)
+
+##temporary data================================================================
+a_indrespy<-a_indresp[which(a_indresp$a_age_dv%in%c(25:50)),]
+m_indrespy<-m_indresp[which(m_indresp$m_age_dv%in%c(25:50)),]
+
+a_indrespyf<-a_indrespy[which(a_indrespy$a_sex_dv==2),]
+m_indrespyf<-m_indrespy[which(m_indrespy$m_sex_dv==2),]
+
+a_indrespym<-a_indrespy[which(a_indrespy$a_sex_dv==1),]
+m_indrespym<-m_indrespy[which(m_indrespy$m_sex_dv==1),]
+
+a_indrespyfc<-a_indrespyf[which(a_indrespyf$homele==0),]
+m_indrespyfc<-m_indrespyf[which(m_indrespyf$homele==0),]
+
+a_indrespymc<-a_indrespym[which(a_indrespym$homele==0),]
+m_indrespymc<-m_indrespym[which(m_indrespym$homele==0),]
+
+a_indrespyc<-a_indrespy[which(a_indrespym$homele==0),]
+m_indrespyc<-m_indrespy[which(m_indrespym$homele==0),]
+
+addmargins(table(a_indrespy$a_ohch16,a_indrespy$a_sex_dv))
+addmargins(table(m_indrespy$m_ohch16,m_indrespy$m_sex_dv))
+
+#for females not living with parents who have at least one dependent child under 16 outside the household (wave 1 n=211--215, wave 13 n=48--77)
+addmargins(table(a_indrespyfc$a_ohch16,a_indrespyfc$a_mastat_dv,exclude="T"))
+##females, marital status in c(1,4,5,6,7) and have no children are categorized as others
+addmargins(table(m_indrespyfc$m_ohch16,m_indrespyfc$m_mastat_dv,exclude="T"))
+
+#for males not living with parents who are single/separated from partners/divorced and have a dependent child under 16 in the household (wave 1 n=18--108, wave 13 n=7--52)
+addmargins(table(a_indrespymc$a_ohch16,a_indrespymc$a_mastat_dv,exclude="T"))
+addmargins(table(m_indrespymc$m_ohch16,m_indrespymc$m_mastat_dv,exclude="T"))
+
+rm(a_indrespy,m_indrespy,a_indrespyf,m_indrespyf,a_indrespym,m_indrespym,a_indrespyfc,m_indrespyfc,a_indrespymc,m_indrespymc,a_indrespyc,m_indrespyc)
+
+#checking how many female-headed families formed (by sex) in each wave
+a_indresp%>%group_by(a_sex_dv)%>%filter(homele==3)%>%summarise(n=n())
+m_indresp%>%group_by(m_sex_dv)%>%filter(homele==3)%>%summarise(n=n())
+```
+
+```{r}
+#checking the marital status and whether having at least one dependent child for those who live with parents
+a_indresp%>%group_by(a_sex_dv,a_nchild_dv)%>%filter(homele==1)%>%summarise(n=n())
+a_indresp%>%group_by(a_sex_dv,a_mastat_dv)%>%filter(homele==1)%>%summarise(n=n())
+
+
+```
+
 ### Adopt the weightings
 
 ```{r}
@@ -301,7 +557,7 @@ svymean(~a_paygu_dv,design=svy_indresp1y,na.rm=TRUE,deff=TRUE)
 # compute DEFT: Remove # and replace "DEFF" in the command "sqrt(DEFF)" with value of DEFF computed in "svymean(~a_paygu_dv,svy_indresp,na.rm=TRUE,deff=TRUE)" 
 #sqrt(DEFF)
 
-#the Deff is 35.39. This means that a sample drawn using the current sampling plan needs to be 35 times the size needed if the sample was collected via an SRS
+#the Deff is 35.39. This means that a sample drawn using the current sampling plan needs to be 35.4 times the size needed if the sample was collected via an SRS
 ```
 
 ## Analyzing data (Cross-sectional)
@@ -311,11 +567,11 @@ svymean(~a_paygu_dv,design=svy_indresp1y,na.rm=TRUE,deff=TRUE)
 Descriptive statistics (wave 1)
 
 ```{r}
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted number of children
 svytable(~a_nchild_dv, design = svy_indresp1y)
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted sex 1:male, 2: female
 svytable(~a_sex_dv, design = svy_indresp1y)
 #The logit option fits a logistic regression model and computes a Wald-type interval on the log-odds scale, which is then transformed to the probability scale.
@@ -331,7 +587,7 @@ rm(barplt)
 svychisq(~a_sex_dv+a_nchild_dv, svy_indresp1y, statistic="adjWald")
 
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted education levels
 svytable(~a_hiqual_dv, design = svy_indresp1y)
 #weighted education levels by sex
@@ -339,7 +595,7 @@ svytable(~a_sex_dv+a_hiqual_dv, design = svy_indresp1y)
 #a chi-squared test of weighted education levels by sex
 svychisq(~a_sex_dv+a_hiqual_dv, svy_indresp1y, statistic="adjWald")
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted marital status
 svytable(~a_mastat_dv, design = svy_indresp1y)
 #weighted marital status by sex
@@ -347,13 +603,13 @@ svytable(~a_sex_dv+a_mastat_dv, design = svy_indresp1y)
 #a chi-squared test of weighted marital status by sex
 svychisq(~a_sex_dv+a_mastat_dv, svy_indresp1y, statistic="adjWald")
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted residential areas (rural/urban)  1:urban, 2:rural
 svytable(~a_urban_dv, design = svy_indresp1y)
 svyciprop(~I(a_urban_dv==2), svy_indresp1y, method="logit")
 
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted mean monthly income (after tax)
 svymean(~a_fimnnet_dv,design=svy_indresp1y,na.rm=TRUE)
 #??svyquantile(~a_fimnnet_dv, design = svy_indresp1y, na.rm=TRUE, c(.25,.5,.75),ci=TRUE)
@@ -370,11 +626,11 @@ svyboxplot(~a_fimnnet_dv~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
 svyboxplot(~lnincome~1, svy_indresp1y, all.outliers=TRUE)
 svyboxplot(~lnincome~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted racial compositions
 svytable(~a_racel_dv, design = svy_indresp1y)
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted age distribution
 svymean(~a_age_dv,design=svy_indresp1y,na.rm=TRUE)
 #histogram
@@ -383,17 +639,23 @@ svyhist(~a_age_dv,design=svy_indresp1y,na.rm=TRUE)
 svyboxplot(~a_age_dv~1, svy_indresp1y, all.outliers=TRUE)
 svyboxplot(~a_age_dv~factor(a_sex_dv), svy_indresp1y, all.outliers=TRUE)
 
+#==================================================================================
+#weighted living with parents or not
+svytable(~lvpab,design=svy_indresp1y)
 
+#==================================================================================
+#home-leaving patterns
+svytable(~homele,design=svy_indresp1y)
 ```
 
 Descriptive statistics (wave 13)
 
 ```{r}
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted number of children
 svytable(~m_nchild_dv, design = svy_indresp2y)
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted sex 1:male, 2: female
 svytable(~m_sex_dv, design = svy_indresp2y)
 #The logit option fits a logistic regression model and computes a Wald-type interval on the log-odds scale, which is then transformed to the probability scale.
@@ -408,8 +670,7 @@ rm(barplt)
 #a chi-squared test of weighted number of children by sex**
 ##???svychisq(~m_sex_dv+m_nchild_dv, svy_indresp2y, statistic="adjWald")Error in solve.default(V[use, use], Y[use]) : Lapack例行程序dgesv: 系统正好是奇异的: U[7,7] = 0
 
-
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted education levels
 svytable(~m_hiqual_dv, design = svy_indresp2y)
 #weighted education levels by sex
@@ -417,7 +678,7 @@ svytable(~m_sex_dv+m_hiqual_dv, design = svy_indresp2y)
 #a chi-squared test of weighted education levels by sex
 svychisq(~m_sex_dv+m_hiqual_dv, svy_indresp2y, statistic="adjWald")
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted marital status
 svytable(~m_mastat_dv, design = svy_indresp2y)
 #weighted marital status by sex
@@ -425,13 +686,13 @@ svytable(~m_sex_dv+m_mastat_dv, design = svy_indresp2y)
 #a chi-squared test of weighted marital status by sex
 svychisq(~m_sex_dv+m_mastat_dv, svy_indresp2y, statistic="adjWald")
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted residential areas (rural/urban)  1:urban, 2:rural
 svytable(~m_urban_dv, design = svy_indresp2y)
 svyciprop(~I(m_urban_dv==2), svy_indresp2y, method="logit")
 
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted mean monthly income (after tax)
 svymean(~m_fimnnet_dv,design=svy_indresp2y,na.rm=TRUE)
 #??svyquantile(~m_fimnnet_dv, design = svy_indresp2y, na.rm=TRUE, c(.25,.5,.75),ci=TRUE)Can't merge the outer name `ci` with a vector of length > 1.Please supply a `.name_spec` specification. 
@@ -447,11 +708,11 @@ svyboxplot(~m_fimnnet_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
 #logged
 svyboxplot(~lnincome~1, svy_indresp2y, all.outliers=TRUE)
 svyboxplot(~lnincome~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted racial compositions
 svytable(~m_racel_dv, design = svy_indresp2y)
 
-#=======================================================================================================================================================================================================================
+#==================================================================================
 #weighted age distribution
 svymean(~m_age_dv,design=svy_indresp2y,na.rm=TRUE)
 #histogram
@@ -459,41 +720,69 @@ svyhist(~m_age_dv,design=svy_indresp2y,na.rm=TRUE)
 #boxplots of age (including the plot for separate genders)
 svyboxplot(~m_age_dv~1, svy_indresp2y, all.outliers=TRUE)
 svyboxplot(~m_age_dv~factor(m_sex_dv), svy_indresp2y, all.outliers=TRUE)
+
+#==================================================================================
+#weighted living with parents or not
+svytable(~lvpab,design=svy_indresp2y)
+
+#==================================================================================
+#home-leaving patterns
+svytable(~homele,design=svy_indresp2y)
 ```
 
-Model 1
+##### Model 1
 
 ```{r}
-m1a<-svyglm(parents~ses+a_age_dv+factor(a_sex_dv)+lnincome+factor(a_racel_dv),design=svy_indresp1y,na.action=na.omit,family=poisson())
+m1a<-svyglm(parents~ses+a_age_dv+a_sex_dv+lnincome+factor(a_racel_dv),design=svy_indresp1y,na.action=na.omit,family=poisson())
         
-m1b<-svyglm(parents~ses+m_age_dv+factor(m_sex_dv)+lnincome+factor(m_racel_dv),design=svy_indresp2y,na.action=na.omit,family=poisson())
+m1b<-svyglm(parents~ses+m_age_dv+m_sex_dv+lnincome+factor(m_racel_dv),design=svy_indresp2y,na.action=na.omit,family=poisson())
+
+summary(m1a)
+summary(m1b)
+
+#grandparents effects(for those who have children under 16 living together)
+
 ```
 
-Model 2
+##### Model 2
+
+```{r}
+#whether married or not
+m2ma<-svyglm(mar~ses+a_age_dv+a_sex_dv+lnincome+factor(a_racel_dv),design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+m2mb<-
+
+#whether cohabiting with others or not
+m2ca<-
+m2cb<-
+
+```
+
+##### Model 3
+
+```{r}
+#whether having at least one dependent child under 16
+```
+
+##### Model 4
 
 ```{r}
 
 ```
 
-Model 3
+##### Model 5
 
 ```{r}
+#m5a<-svy_vglm(homele~ses+a_age_dv+a_sex_dv+lnincome+factor(a_racel_dv)+a_urban_dv+parents,family=multinomial(refLevel=1),design=svy_indresp1y,na.action=na.omit)
 
+#mult_eth<- svy_vglm(RIDRETH1~RIDAGEYR+DMDEDUC,family=multinomial(refLevel=3), design=nhdes)
+
+#If you are noticing lag in the RStudio console, i.e. slow responsiveness, you may need to clear the console cache. Try clearing the console cache with ctrl+L and check if that improves performance.
+
+m5a<-svy_vglm(homele~ses+a_age_dv+a_sex_dv+lnincome+factor(a_racel_dv)+a_urban_dv+parents,family=multinomial(refLevel=1),design=svy_indresp1y,na.action=na.omit)
+summary(m5a)
 ```
 
-Model 4
-
-```{r}
-
-```
-
-Model 5
-
-```{r}
-
-```
-
-### matching parents and their children for analysis
+### amatching parents and their children for analysis
 
 ### matching couples for analysis
 
