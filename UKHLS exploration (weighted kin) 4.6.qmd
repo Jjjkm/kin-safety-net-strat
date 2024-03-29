@@ -1,0 +1,1166 @@
+---
+title: "UKHLS exploration (weighted kin) 4.6"
+format: html
+editor: visual
+---
+
+## Reading and cleaning data
+
+```{r}
+#houskeeping
+#Clear objects already in the environment – start with a clean slate
+rm(list=ls())
+
+#loading libraries
+library(tidyverse)
+library(svyVGAM)
+library(sjlabelled)
+library(desctable)
+library(summarytools)
+library(naniar)
+library(survey)
+library(svrep)
+library(Hmisc)
+library(srvyr)
+library(marginaleffects)
+library(haven)
+library(catregs)
+library(margins)
+library(modelsummary)
+library(zoo)
+```
+
+#### wave 1
+
+```{r}
+#wave 1 
+inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
+
+a_indresp <- read_dta(file=paste0(inpath, "ukhls/a_indresp.dta")) %>%
+ dplyr::select(a_hidp, pidp, a_mastat_dv, a_strata, a_psu, a_hhorig, 
+         a_indinus_xw,a_indpxus_xw, a_ind5mus_xw,a_ivfio, a_sampst,
+         a_age_dv, a_sex_dv, a_hiqual_dv, a_paygu_dv, a_country,
+         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_nchresp,a_urban_dv,a_ohch16)
+```
+
+#cleaning the data
+
+```{r echo = T, results = 'hide'}
+rm(tmp_df)
+# replace missing values (integers -9 to -1) with NA
+missval <- c(-9, -8, -7, -2, -1)
+for (i in 1:5) {
+  a_indresp <- a_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+
+#check NA
+table(a_indresp$a_age_dv)
+table(a_indresp$a_sex_dv)
+a_indresp$a_sex_dv[a_indresp$a_sex_dv==0]<-NA
+table(a_indresp$a_hiqual_dv)
+table(a_indresp$a_paygu_dv<0)
+table(a_indresp$a_country)
+table(a_indresp$a_mastat_dv)
+table(a_indresp$a_racel_dv)
+table(a_indresp$a_fimnnet_dv<0)
+a_indresp$a_fimnnet_dv[a_indresp$a_fimnnet_dv<0]<-NA
+table(a_indresp$a_lvrel1)
+table(a_indresp$a_lvrel2)
+table(a_indresp$a_pns1pno)
+table(a_indresp$a_pns2pno)
+table(a_indresp$a_nchild_dv)
+table(a_indresp$a_nchresp)
+table(a_indresp$a_urban_dv)
+table(a_indresp$a_ohch16)
+
+rm(i,missval)
+```
+
+```{r}
+#preparing variables for analysis (wave 1)
+#num of parents (not censored)
+a_indresp$lvpam<-c(0)
+a_indresp$lvpam[a_indresp$a_pns1pno!=0]<-1
+a_indresp$lvpaf<-c(0)
+a_indresp$lvpaf[a_indresp$a_pns2pno!=0]<-1
+a_indresp$parentnum<-a_indresp$a_lvrel1+a_indresp$a_lvrel2+a_indresp$lvpam+a_indresp$lvpaf
+
+#having one & two or more parents (censored)
+a_indresp$parents<-c(0)
+a_indresp$parents[a_indresp$parentnum==1]<-1
+a_indresp$parents[a_indresp$parentnum>1]<-2
+
+#living with parents or not (biological/step/adoptive)
+a_indresp$lvpa<-a_indresp$lvpam+a_indresp$lvpaf
+a_indresp<-a_indresp%>%dplyr::select(-lvpam,-lvpaf)
+
+#binary
+a_indresp$lvpab<-c(0)
+a_indresp$lvpab[a_indresp$lvpa!=0]<-1
+
+#high ses and low ses (Degree/Other higher)
+a_indresp$ses<-c(0)
+a_indresp$ses[a_indresp$a_hiqual_dv%in%c(1,2)]<-1
+print(attr(a_indresp$a_hiqual_dv,"labels"))
+
+#making nchild_dv a binary variable
+a_indresp$child<-c(0)
+a_indresp$child[a_indresp$a_nchild_dv>=1]<-1
+
+#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
+a_indresp$partner<-c(0)
+a_indresp$partner[a_indresp$a_mastat_dv%in%c(2,3,10)]<-1
+print(attr(a_indresp$a_mastat_dv,"labels"))
+
+#makeing cohabitation a binary variable
+a_indresp$cohab<-c(0)
+a_indresp$cohab[a_indresp$a_mastat_dv%in%c(10)]<-1
+
+#making married a binary variable
+a_indresp$mar<-c(0)
+a_indresp$mar[a_indresp$a_mastat_dv%in%c(2,3)]<-1
+
+#logarithm of age
+a_indresp$lnage<-log(a_indresp$a_age_dv)
+
+#logarithm of income
+a_indresp$lnincome<-log(a_indresp$a_fimnnet_dv)
+#add 1 to all income values to avoid -inf in log transformation
+a_indresp$incomeadd<-a_indresp$a_fimnnet_dv+1
+a_indresp$lnincome<-log(a_indresp$incomeadd)
+a_indresp<-a_indresp%>%dplyr::select(-incomeadd)
+
+#nonmarital child-bearing (and child-rearing) 
+a_indresp$nc<-c(0)
+a_indresp$nc[a_indresp$mar==0 & a_indresp$child==1]<-1
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 1) wech
+#no children
+a_indresp$wech<-c(0)
+
+#for those who have childre: married
+a_indresp$wech[a_indresp$mar==1 & a_indresp$child==1]<-1
+
+#for those who have childre: in cohabitation
+a_indresp$wech[a_indresp$cohab==1 & a_indresp$child==1]<-2
+
+#for those who have children: outside a coresidential union
+a_indresp$wech[a_indresp$a_mastat_dv%in%c(1,4,5,6,7,8,9) & a_indresp$child==1]<-3
+
+attr(a_indresp$wech,"labels")<-c(
+"NA:for those who do not have children or have NAs in the variable a_mastat_dv;", 
+"1:for those who have children: married;",
+"2:for those who have children: in cohabitation;",
+"3:for those who have children: outside a coresidential union;")
+
+print(attr(a_indresp$wech,"labels"))
+print(attr(a_indresp$a_mastat_dv,"labels"))
+
+a_indresp$wech[a_indresp$wech==0]<-NA
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 1) homele
+##patterns of home-leaving 
+
+a_indresp$homele<-c(0)
+
+###living with parents(including those who have children)========================
+a_indresp$homele[a_indresp$lvpa!=0]<-1
+
+##route out 1: to live with a partner and children ==============================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-2 #have a child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-2#have a child under 16 in the hh
+
+
+
+##route out 2: to live with a partner but no children=====================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+##route out 3: forming a female-headed family============================
+###females
+a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv!=2 & #not married
+                         a_indresp$a_mastat_dv!=3 & #not in civil partnership
+                         a_indresp$a_mastat_dv!=10 & #not in cohabitation
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv!=0]<-4 #have a dependent child under 16 in the hh
+
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 & # not living with parents
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_ohch16%in%c(1,2)]<-4 # (at least one) children under 16 not living in the same hh
+
+
+##route out 4: to autonomous living =====================
+###females
+a_indresp$homele[a_indresp$lvpa==0 &
+                         a_indresp$a_sex_dv==2 & #females
+                         a_indresp$a_mastat_dv%in%c(1,4,5,6,7,8,9)& #excludes those
+                         #who are currently married, in a civil partnership
+                         #, or cohabiting with others but includes those who are
+                         #divorced, widowed, or separated from their legal partners
+                         
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+###males
+a_indresp$homele[a_indresp$lvpa==0 &
+                         a_indresp$a_sex_dv==1 & #males
+                         a_indresp$a_mastat_dv%in%c(1,4,5,6,7,8,9)& #excludes those
+                         #who are currently married, in a civil partnership
+                         #, or cohabiting with others but includes those who are
+                         #divorced, widowed, or separated from their legal partners
+                         
+                         a_indresp$a_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         a_indresp$a_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+
+attr(a_indresp$homele,"labels")<-c(
+"note1: variables marked as missing/inapplicable/proxy/refusal/don't know in a_ohch16 are treated as not having dependent children under 16 outside the household",
+"note2: route out 4 excludes those who are currently married, in a civil partnership, or cohabiting with others but includes those who are divorced, widowed, or separated from their legal partners",
+"NA:others(not living with parents: for females having at least one dependent child under 16 not living together; for males being single/separated from partners/divorced and living with at least one dependent child under 16; for both sexes if they have NA values in mastat_dv and nchild_dv);", 
+"1:living with parents(including those who have children or partners);",
+"2:route out 1: to live with a partner and children;",
+"3:route out 2: to live with a partner but no children;",
+"4:route out 3: forming a female-headed family",
+"5:route out 4: to autonomous living")
+a_indresp$homele[a_indresp$homele==0]<-NA
+
+print(attr(a_indresp$homele,"labels"))
+print(attr(a_indresp$a_ohch16,"labels"))
+print(attr(a_indresp$a_mastat_dv,"labels"))
+```
+
+#### wave 13
+
+```{r}
+#wave 13
+m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
+ dplyr::select(m_hidp, pidp, m_mastat_dv, m_strata, m_psu, m_hhorig, 
+         m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
+         m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv,m_ohch16)
+```
+
+cleaning the data
+
+```{r echo = T, results = 'hide'}
+# replace missing values (integers -9 to -1) with NA
+missval <- c(-9, -8, -7, -2, -1)
+for (i in 1:5) {
+  m_indresp <- m_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+
+#check NA
+table(m_indresp$m_age_dv)
+table(m_indresp$m_sex_dv)
+m_indresp$m_sex_dv[m_indresp$m_sex_dv==0]<-NA
+table(m_indresp$m_hiqual_dv)
+table(m_indresp$m_paygu_dv<0)
+table(m_indresp$m_country)
+table(m_indresp$m_mastat_dv)
+table(m_indresp$m_racel_dv)
+table(m_indresp$m_fimnnet_dv<0)
+m_indresp$m_fimnnet_dv[m_indresp$m_fimnnet_dv<0]<-NA
+table(m_indresp$m_lvrel1)
+table(m_indresp$m_lvrel2)
+table(m_indresp$m_lvrel9)
+table(m_indresp$m_lvrel10)
+table(m_indresp$m_pns1pno)
+table(m_indresp$m_pns2pno)
+table(m_indresp$m_nchild_dv)
+table(m_indresp$m_nchresp)
+table(m_indresp$m_urban_dv)
+table(m_indresp$m_ohch16)
+
+rm(i,missval)
+```
+
+```{r}
+#preparing variables for analysis (wave 13)
+
+#num of parents (not censored, information outside the household includes step/adoptive mother and father in this wave)
+m_indresp$lvpam<-c(0)
+m_indresp$lvpam[m_indresp$m_pns1pno!=0]<-1
+m_indresp$lvpaf<-c(0)
+m_indresp$lvpaf[m_indresp$m_pns2pno!=0]<-1
+m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$m_lvrel9+m_indresp$m_lvrel10+m_indresp$lvpam+m_indresp$lvpaf
+
+#having one & two or more parents (censored)
+m_indresp$parents<-c(0)
+m_indresp$parents[m_indresp$parentnum==1]<-1
+m_indresp$parents[m_indresp$parentnum>1]<-2
+
+#living with parents or not (biological/step/adoptive)
+m_indresp$lvpa<-m_indresp$lvpam+m_indresp$lvpaf
+m_indresp<-m_indresp%>%dplyr::select(-lvpam,-lvpaf)
+#binary
+m_indresp$lvpab<-c(0)
+m_indresp$lvpab[m_indresp$lvpa!=0]<-1
+
+
+
+#high ses and low ses (Degree/Other higher)
+m_indresp$ses<-c(0)
+m_indresp$ses[m_indresp$m_hiqual_dv%in%c(1,2)]<-1
+print(attr(m_indresp$m_hiqual_dv,"labels"))
+
+#making nchild_dv a binary variable
+m_indresp$child<-c(0)
+m_indresp$child[m_indresp$m_nchild_dv>=1]<-1
+
+#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
+m_indresp$partner<-c(0)
+m_indresp$partner[m_indresp$m_mastat_dv%in%c(2,3,10)]<-1
+print(attr(m_indresp$m_mastat_dv,"labels"))
+
+#makeing cohabitation a binary variable
+m_indresp$cohab<-c(0)
+m_indresp$cohab[m_indresp$m_mastat_dv%in%c(10)]<-1
+
+#making married a binary variable
+m_indresp$mar<-c(0)
+m_indresp$mar[m_indresp$m_mastat_dv%in%c(2,3)]<-1
+
+#logarithm of age
+m_indresp$lnage<-log(m_indresp$m_age_dv)
+
+#logarithm of income
+#add 1 to all income values to avoid -inf in log transformation
+m_indresp$incomeadd<-m_indresp$m_fimnnet_dv+1
+m_indresp$lnincome<-log(m_indresp$incomeadd)
+m_indresp<-m_indresp%>%dplyr::select(-incomeadd)
+
+#nonmarital child-bearing (and child-rearing) 
+m_indresp$nc<-c(0)
+m_indresp$nc[m_indresp$mar==0 & m_indresp$child==1]<-1
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 13) wech
+#no children
+m_indresp$wech<-c(0)
+
+#for those who have childre: married
+m_indresp$wech[m_indresp$mar==1 & m_indresp$child==1]<-1
+
+#for those who have childre: in cohabitation
+m_indresp$wech[m_indresp$cohab==1 & m_indresp$child==1]<-2
+
+#for those who have children: outside a coresidential union
+m_indresp$wech[m_indresp$m_mastat_dv%in%c(1,4,5,6,7,8,9) & m_indresp$child==1]<-3
+
+attr(m_indresp$wech,"labels")<-c(
+"NA:for those who do not have children or have NAs in the variable m_mastat_dv;", 
+"1:for those who have children: married;",
+"2:for those who have children: in cohabitation;",
+"3:for those who have children: outside a coresidential union;")
+
+print(attr(m_indresp$wech,"labels"))
+print(attr(m_indresp$m_mastat_dv,"labels"))
+
+m_indresp$wech[m_indresp$wech==0]<-NA
+#m_indresp%>%filter(wech==0)%>%filter(child==1)%>%group_by(m_mastat_dv)%>%summarise(n=n())
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 13) rou
+##patterns of home-leaving 
+m_indresp$homele<-c(0)
+
+###living with parents(including those who have children or partners)============
+m_indresp$homele[m_indresp$lvpa!=0]<-1
+
+##route out 1: to live with a partner and children ==============================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-2 #have a child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-2#have a child under 16 in the hh
+
+
+
+##route out 2: to live with a partner but no children=====================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv%in%c(2,3,10) & #married or in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-3 # don't have a child under 16 in the hh
+
+
+##route out 3: forming a female-headed family============================
+###females
+m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv!=2 & #not married
+                         m_indresp$m_mastat_dv!=3 & #not in civil partnership
+                         m_indresp$m_mastat_dv!=10 & #not in cohabitation
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv!=0]<-4 #have a dependent child under 16 in the hh
+
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 & # not living with parents
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_ohch16%in%c(1,2)]<-4 # (at least one) children under 16 not living in the same hh
+
+
+##route out 4: to autonomous living =====================
+###females
+m_indresp$homele[m_indresp$lvpa==0 &
+                         m_indresp$m_sex_dv==2 & #females
+                         m_indresp$m_mastat_dv%in%c(1,4,5,6,7,8,9)& #excludes those
+                         #who are currently married, in a civil partnership
+                         #, or cohabiting with others but includes those who are
+                         #divorced, widowed, or separated from their legal partners
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+###males
+m_indresp$homele[m_indresp$lvpa==0 &
+                         m_indresp$m_sex_dv==1 & #males
+                         m_indresp$m_mastat_dv%in%c(1,4,5,6,7,8,9)& #excludes those
+                         #who are currently married, in a civil partnership
+                         #, or cohabiting with others but includes those who are
+                         #divorced, widowed, or separated from their legal partners
+                         m_indresp$m_ohch16%in%c(3,NA) & # no child under 16 not living with the respondent
+                         m_indresp$m_nchild_dv==0]<-5 # don't have a child under 16 in the hh
+
+attr(m_indresp$homele,"labels")<-c(
+"note: variables marked as missing/inapplicable/proxy/refusal/don't know in m_ohch16 are treated as not having dependent children under 16 outside the household",
+"note2: route out 4 excludes those who are currently married, in a civil partnership, or cohabiting with others but includes those who are divorced, widowed, or separated from their legal partners",
+"NA:others(not living with parents: for females having at least one dependent child under 16 not living together; for males being single/separated from partners/divorced and living with at least one dependent child under 16; for both sexes if they have NA values in mastat_dv and nchild_dv);", 
+"1:living with parents(including those who have children or partners);",
+"2:route out 1: to live with a partner and children;",
+"3:route out 2: to live with a partner but no children;",
+"4:route out 3: forming a female-headed family",
+"5:route out 4: to autonomous living")
+
+m_indresp$homele[m_indresp$homele==0]<-NA
+
+print(attr(m_indresp$homele,"labels"))
+print(attr(m_indresp$m_ohch16,"labels"))
+print(attr(m_indresp$m_mastat_dv,"labels"))
+```
+
+### Adopt the weightings
+
+```{r}
+options(survey.lonely.psu="adjust")
+
+svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=a_indresp)
+
+svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indinui_xw, data=m_indresp)
+
+#subset the data for respondents aged 25-50
+svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(25:50))
+
+svy_indresp2y<-subset(svy_indresp2, m_age_dv%in%c(25:50))
+
+#subset the data for respondents aged 25-50 and have at least one child under 16
+svy_indresp1yc<-subset(svy_indresp1y, child==1)
+
+svy_indresp2yc<-subset(svy_indresp2y, child==1)
+
+#for males and females
+#females
+svy_indresp1yf<-subset(svy_indresp1y, a_sex_dv%in%c(2))
+svy_indresp2yf<-subset(svy_indresp2y, m_sex_dv%in%c(2))
+
+svy_indresp1yfc<-subset(svy_indresp1yc, a_sex_dv%in%c(2))
+svy_indresp2yfc<-subset(svy_indresp2yc, m_sex_dv%in%c(2))
+
+
+#males
+svy_indresp1ym<-subset(svy_indresp1y, a_sex_dv%in%c(1))
+svy_indresp2ym<-subset(svy_indresp2y, m_sex_dv%in%c(1))
+
+svy_indresp1ymc<-subset(svy_indresp1yc, a_sex_dv%in%c(1))
+svy_indresp2ymc<-subset(svy_indresp2yc, m_sex_dv%in%c(1))
+```
+
+#### M1
+
+```{r}
+#whether using the subset within expressions make no difference!when using the marginaleffects function, the inapplicables will work if exclude race*ses
+#m1cb<-svyglm(parents~m_sex_dv*ses+lnincome*m_sex_dv+lnage+factor(m_racel_dv)*ses,design=subset(svy_indresp2,child==1&m_age_dv%in%c(25:50)),na.action=na.omit,family=poisson())
+
+
+m1a<-svyglm(parents~a_sex_dv*ses+lnincome*a_sex_dv+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=poisson())
+        
+m1b<-svyglm(parents~m_sex_dv*ses+lnincome*m_sex_dv+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=poisson())
+
+#grandparents effects(for those who have children under 16 living together)=========
+m1ca<-svyglm(parents~a_sex_dv*ses+lnincome*a_sex_dv+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yc,na.action=na.omit,family=poisson())
+        
+m1cb<-svyglm(parents~m_sex_dv*ses+lnincome*m_sex_dv+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yc,na.action=na.omit,family=poisson())
+
+
+
+##by gender========================================================
+m1af<-svyglm(parents~ses+lnincome+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=poisson())
+m1am<-svyglm(parents~ses+lnincome+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=poisson())
+
+m1bf<-svyglm(parents~ses+lnincome+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=poisson())
+m1bm<-svyglm(parents~ses+lnincome+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=poisson())
+
+##grandparent effects
+m1caf<-svyglm(parents~ses+lnincome+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yfc,na.action=na.omit,family=poisson())
+m1cam<-svyglm(parents~ses+lnincome+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ymc,na.action=na.omit,family=poisson())
+
+m1cbf<-svyglm(parents~ses+lnincome+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yfc,na.action=na.omit,family=poisson())
+m1cbm<-svyglm(parents~ses+lnincome+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ymc,na.action=na.omit,family=poisson())
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#z tests of coefficients
+zscore <- function(coef2,coef1,se2,se1){(coef2-coef1)/sqrt((se2)**2+(se1)**2)
+ }
+#m1a,m1b notsig
+zscore(coef2 = 0.064504,coef1 =0.045133,se2 =0.042231,se1 = 0.020167  )
+#m1ca,m1cb  notsig
+zscore(coef2 = 1.975e-05,coef1 =0.053228,se2 =5.839e-02,se1 = 0.029242 )
+
+#m1af, m1bf notsig
+zscore(coef2 = 0.098203,coef1 =0.077184,se2 =0.019342,se1 = 0.008330)
+
+#m1am, m1bm notsig
+zscore(coef2 = 0.081979,coef1 =0.062227,se2 =0.020156,se1 = 0.010242)
+
+#m1caf, m1cbf notsig
+zscore(coef2 =  0.104636,coef1 =0.0659905,se2 =0.024469,se1 = 0.0102598)
+
+#m1cam, m1cbm notsig
+zscore(coef2 =0.05423 ,coef1 =0.066584,se2 =0.02849,se1 = 0.015341)
+
+#comparing AMEs
+#m1a,m1b sig
+cames<-summary(marginaleffects(m1a,variables="ses"))
+cames2<-summary(marginaleffects(m1b,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m1ca.m1cb #inapplicable
+cames<-summary(marginaleffects(m1ca,variables="ses"))
+#cames2<-summary(marginaleffects(m1cb,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m1af m1bf notsig
+cames<-summary(marginaleffects(m1af,variables="ses"))
+cames<-summary(marginaleffects(m1bf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m1am m1bm #inapplicable
+cames<-summary(marginaleffects(m1am,variables="ses"))
+#cames<-summary(marginaleffects(m1bm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m1caf m1cbf #inapplicable
+cames<-summary(marginaleffects(m1caf,variables="ses"))
+#cames<-summary(marginaleffects(m1cbf,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m1cam m1cbm #inapplicable
+#cames<-summary(marginaleffects(m1cam,variables="ses"))
+#cames<-summary(marginaleffects(m1cbm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+```
+
+#### M2
+
+```{r}
+#whether have partners (married/in civil partnership/cohabiting with others) or not===========================================
+m2a<-svyglm(partner~a_sex_dv*ses+a_sex_dv*lnincome+a_sex_dv*child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+m2b<-svyglm(partner~m_sex_dv*ses+m_sex_dv*lnincome+m_sex_dv*child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=quasibinomial)
+
+
+#married or not==============================================
+m2ma<-svyglm(mar~a_sex_dv*ses+a_sex_dv*lnincome+a_sex_dv*child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+m2mb<-svyglm(mar~m_sex_dv*ses+m_sex_dv*lnincome+m_sex_dv*child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=quasibinomial)
+        
+#cohabiting with others or not==================================
+m2ca<-svyglm(cohab~a_sex_dv*ses+a_sex_dv*lnincome+a_sex_dv*child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+m2cb<-svyglm(cohab~m_sex_dv*ses+m_sex_dv*lnincome+m_sex_dv*child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=quasibinomial)
+        
+##by gender================================================
+##partner
+m2af<-svyglm(partner~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+m2am<-svyglm(partner~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+m2bf<-svyglm(partner~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m2bm<-svyglm(partner~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+
+
+##marriage
+m2maf<-svyglm(mar~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+m2mam<-svyglm(mar~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+m2mbf<-svyglm(mar~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m2mbm<-svyglm(mar~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+
+##cohabitation
+m2caf<-svyglm(cohab~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+m2cam<-svyglm(cohab~ses+lnincome+child+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+m2cbf<-svyglm(cohab~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m2cbm<-svyglm(cohab~ses+lnincome+child+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#z tests of coefficients
+
+#m2a,m2b notsig
+zscore(coef2 = 0.077230,coef1 =0.11789 ,se2 =0.242497,se1 =  0.14008   )
+
+#m2ma, m2mb notsig
+zscore(coef2 = 0.34636,coef1 =0.410730,se2 =0.21299,se1 =  0.120772   )
+
+
+#m2ca, m2cb notsig
+zscore(coef2 = -0.451109,coef1 =-0.402066 ,se2 =0.222171,se1 = 0.130478  )
+
+
+#m2af,m2bf notsig
+zscore(coef2 =  0.59085 ,coef1 =0.510873 ,se2 = 0.10171,se1 =  0.054955    )
+
+#m2am,m2bm notsig
+zscore(coef2 =   0.396385 ,coef1 =0.41720 ,se2 =  0.134888,se1 =  0.07860  )
+
+
+#m2maf,m2mbf notsig
+zscore(coef2 =   0.57279,coef1 =0.53924 ,se2 = 0.08875,se1 = 0.05039 )
+
+
+#m2mam,m2mbm notsig
+zscore(coef2 =    0.43935,coef1 = 0.53697  ,se2 = 0.11429,se1 = 0.06886 )
+
+
+#m2caf,m2cbf notsig
+zscore(coef2 =   -0.07332 ,coef1 =-0.20694,se2 = 0.09916,se1 = 0.06189 )
+
+
+#m2cam,m2cbm notsig
+zscore(coef2 =   -0.19098   ,coef1 =-0.26902 ,se2 =   0.11383 ,se1 = 0.06845 )
+
+
+
+
+#comparing AMEs
+#m2a,m2b notsig
+cames<-summary(marginaleffects(m2a,variables="ses"))
+cames2<-summary(marginaleffects(m2b,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2ma,m2mb notsig
+cames<-summary(marginaleffects(m2ma,variables="ses"))
+cames2<-summary(marginaleffects(m2mb,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2ca,m2cb notsig
+cames<-summary(marginaleffects(m2ca,variables="ses"))
+cames2<-summary(marginaleffects(m2cb,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2af, m2bf  notsig
+cames<-summary(marginaleffects(m2af,variables="ses"))
+cames2<-summary(marginaleffects(m2bf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2am, m2bm #inapplicable
+cames<-summary(marginaleffects(m2am,variables="ses"))
+#cames2<-summary(marginaleffects(m2bm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m2maf,m2mbf notsig
+cames<-summary(marginaleffects(m2maf,variables="ses"))
+cames2<-summary(marginaleffects(m2mbf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2mam,m2mbm #inapplicable
+cames<-summary(marginaleffects(m2mam,variables="ses"))
+#cames2<-summary(marginaleffects(m2mbm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m2caf,m2cbf notsig
+cames<-summary(marginaleffects(m2caf,variables="ses"))
+cames2<-summary(marginaleffects(m2cbf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m2cam,m2cbm #inapplicable
+cames<-summary(marginaleffects(m2cam,variables="ses"))
+#cames2<-summary(marginaleffects(m2cbm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+```
+
+#### M3
+
+```{r}
+#whether having at least one dependent child under 16
+
+#partner as an interaction variable===================================================================
+m3pa<-svyglm(child~a_sex_dv*ses+a_sex_dv*lnincome+a_sex_dv*partner+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+
+m3pb<-svyglm(child~m_sex_dv*ses+m_sex_dv*lnincome+m_sex_dv*partner+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=quasibinomial)
+
+
+#change the control variable partner to mar =======================================================================
+m3ma<-svyglm(child~a_sex_dv*ses+a_sex_dv*lnincome+a_sex_dv*mar+lnage+factor(a_racel_dv)*ses,design=svy_indresp1y,na.action=na.omit,family=quasibinomial)
+
+m3mb<-svyglm(child~m_sex_dv*ses+m_sex_dv*lnincome+m_sex_dv*mar+lnage+factor(m_racel_dv)*ses,design=svy_indresp2y,na.action=na.omit,family=quasibinomial)
+
+##by gender================================================
+##partner
+m3paf<-svyglm(child~ses+lnincome+partner+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+m3pam<-svyglm(child~ses+lnincome+partner+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+m3pbf<-svyglm(child~ses+lnincome+partner+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m3pbm<-svyglm(child~ses+lnincome+partner+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+
+
+##mar
+m3maf<-svyglm(child~ses+lnincome+mar+lnage+factor(a_racel_dv)*ses,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+m3mam<-svyglm(child~ses+lnincome+mar+lnage+factor(a_racel_dv)*ses,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+
+ 
+m3mbf<-svyglm(child~ses+lnincome+mar+lnage+factor(m_racel_dv)*ses,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m3mbm<-svyglm(child~ses+lnincome+mar+lnage+factor(m_racel_dv)*ses,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#z tests of coefficients
+
+#m3pa m3pb notsig
+zscore(coef2 = 2.562e-01,coef1 =0.082575  ,se2 = 2.114e-01,se1 =  0.115776   )
+
+#m3ma m3mb notsig
+zscore(coef2 = 0.08058,coef1 = -0.075814 ,se2 = 0.20900,se1 =  0.114921    )
+
+#m3paf m3pbf sig**
+zscore(coef2 = -0.226395 ,coef1 = -0.43111 ,se2 = 0.086516,se1 = 0.04863     )
+
+#m3pam m3pbm notsig
+zscore(coef2 = 0.01668  ,coef1 =  -0.14295  ,se2 =0.11745,se1 =  0.06464     )
+
+#m3maf m3mbf sig**
+zscore(coef2 =  -0.227396    ,coef1 =  -0.478041   ,se2 =0.085883,se1 =  0.049550     )
+
+#m3mam, m3mbm notsig
+zscore(coef2 =  -0.04247 ,coef1 =  -0.22177   ,se2 = 0.11665,se1 =  0.06465      )
+
+
+
+#comparing AMEs
+#m3pa m3pb sig
+cames<-summary(marginaleffects(m3pa,variables="ses"))
+cames2<-summary(marginaleffects(m3pb,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m3ma m3mb sig
+cames<-summary(marginaleffects(m3ma,variables="ses"))
+cames2<-summary(marginaleffects(m3mb,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m3paf m3pbf sig**
+cames<-summary(marginaleffects(m3paf,variables="ses"))
+cames2<-summary(marginaleffects(m3pbf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m3pam, m3pbm #inapplicble
+cames<-summary(marginaleffects(m3pam,variables="ses"))
+#cames2<-summary(marginaleffects(m3pbm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+
+#m3maf, m3mbf sig**
+cames<-summary(marginaleffects(m3maf,variables="ses"))
+cames2<-summary(marginaleffects(m3mbf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#m3mam, m3mbm  #inapplicble
+cames<-summary(marginaleffects(m3mam,variables="ses"))
+#cames2<-summary(marginaleffects(m3mbm,variables="ses"))
+#came<-rbind(cames,cames2)
+#compare.margins(came$estimate,came$std.error)
+```
+
+```{r}
+#% of people who have no children in two periods
+9890.2940497/(sum(svytable(~a_nchild_dv, design = svy_indresp1y)))
+4840.235594/sum(svytable(~m_nchild_dv, design = svy_indresp2y))
+
+#by ses
+#addmargins(svytable(~a_nchild_dv+a_sex_dv+ses, design = svy_indresp1y))
+#addmargins(svytable(~m_nchild_dv+m_sex_dv+ses, design = svy_indresp2y))
+
+print("low ses f wave 1")
+2247.4860508/6016.1122620
+print("low ses f wave 13")
+1043.5400280/2287.8136361
+
+print("high ses f wave 1")
+2052.6501438/4537.3155960 
+print("high ses f wave 13")
+1327.9308310/2854.3084698
+
+print("low ses m wave 1")
+3298.0091878/ 6173.6157590 
+print("low ses m wave 13")
+1265.5927963/2232.9800162
+
+print("high ses m wave 1")
+2292.1486672/4285.9607117
+print("high ses m wave 13")
+1201.5075116/2321.9321727 
+
+
+
+```
+
+```{r}
+#unweighted m3paf m3pbf
+fitm3paf<-glm(child~ses+lnincome+partner+lnage+factor(a_racel_dv)*ses,na.action=na.omit,family=binomial(link="logit"),data=f1)
+fitm3pbf<-glm(child~ses+lnincome+partner+lnage+factor(m_racel_dv)*ses,na.action=na.omit,family=binomial(link="logit"),data=f2)
+
+cames<-summary(marginaleffects(fitm3paf,variables="ses"))
+cames2<-summary(marginaleffects(fitm3pbf,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+zscore(coef2=-0.123381 ,coef1=-0.44411 ,se2=0.068425 ,se1= 0.04538)
+
+#race==1 for changes
+fitracem3paf<-svyglm(child~ses+lnincome+partner+lnage,design=subset(svy_indresp1yf,a_racel_dv==1),na.action=na.omit,family=quasibinomial)
+
+fitracem3pbf<-svyglm(child~ses+lnincome+partner+lnage,design=subset(svy_indresp2yf,m_racel_dv==1),na.action=na.omit,family=quasibinomial)
+
+zscore(coef2= -0.23331  ,coef1=-0.43526    ,se2=0.08568 ,se1= 0.04927)
+
+#race==1 for changes unweighted
+f1r<-
+```
+
+#### M4
+
+```{r}
+
+m4a<-svy_vglm(wech~a_sex_dv*ses+a_sex_dv*lnincome+factor(parents)*ses+lnage+factor(a_racel_dv),family=multinomial(refLevel=1),design=svy_indresp1y,na.action=na.omit)
+
+m4b<-svy_vglm(wech~m_sex_dv*ses+m_sex_dv*lnincome+factor(parents)*ses+lnage+factor(m_racel_dv),family=multinomial(refLevel=1),design=svy_indresp2y,na.action=na.omit)
+
+
+##by gender==================================================================================
+m4af<-svy_vglm(wech~ses+lnincome+factor(parents)*ses+lnage+factor(a_racel_dv),family=multinomial(refLevel=1),design=svy_indresp1yf,na.action=na.omit)
+m4am<-svy_vglm(wech~ses+lnincome+factor(parents)*ses+lnage+factor(a_racel_dv),family=multinomial(refLevel=1),design=svy_indresp1ym,na.action=na.omit)
+        
+m4bf<-svy_vglm(wech~ses+lnincome+factor(parents)*ses+lnage+factor(m_racel_dv),family=multinomial(refLevel=1),design=svy_indresp2yf,na.action=na.omit)
+m4bm<-svy_vglm(wech~ses+lnincome+factor(parents)*ses+lnage+factor(m_racel_dv),family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
+
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#z tests of coefficients
+
+#m4a, m4b  married vs cohabitation  notsig
+zscore(coef2 =  -0.809036    ,coef1 = -0.782390     ,se2 = 0.491166  ,se1 =    0.352882 )
+#m4a, m4b  married vs single  notsig
+zscore(coef2 = 1.327774     ,coef1 =  0.039135    ,se2 =  0.921756  ,se1 =   0.477689  )
+
+
+#m4am, m4bm married vs cohabitation  notsig
+zscore(coef2 = -0.674445    ,coef1 =  -0.5479942    ,se2 = 0.480751 ,se1 =    0.4129079   )
+#m4am, m4bm married vs single  notsig
+zscore(coef2 = -0.154651   ,coef1 =  -0.6127742      ,se2 = 1.089728,se1 =  0.4894074  )
+
+
+#m4af,m4pf married vs cohabitation  notsig
+zscore(coef2 = -0.796294  ,coef1 = -0.8766878    ,se2 = 0.483708,se1 =   0.3696156  )
+
+#m4af,m4pf married vs single  notsig
+zscore(coef2 =  -0.618743   ,coef1 = -0.9219908   ,se2 = 0.365007,se1 =   0.2354158   )
+```
+
+#### M5
+
+```{r}
+#building a multinomial model of respondents' home-leaving patterns with living with parents as the reference group
+
+##find out how to sub-categorize 18 different ethnic backgrouds in ukhls!
+
+#If you are noticing lag in the RStudio console, i.e. slow responsiveness, you may need to clear the console cache. Try clearing the console cache with ctrl+L and check if that improves performance.
+
+m5a<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1y,na.action=na.omit)
+
+m5b<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(m_racel_dv)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2y,na.action=na.omit)
+
+
+#In checkwz(wz, M = M, trace = trace, wzepsilon = control$wzepsilon) :15 diagonal elements of the working weights variable 'wz' have been replaced by 1.819e-12
+ #notifies the user that some diagonal elements of the weights matrix used in the iterative model fitting procedure have been adjusted to prevent numerical underflow??
+
+
+##by gender==============================================================================
+m5af<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1yf,na.action=na.omit)
+m5bf<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(m_racel_dv)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2yf,na.action=na.omit)
+
+# inapplicable m5bm<-svy_vglm(homele~ses+lnincome*ses+factor(parents)*ses+lnage+factor(m_racel_dv)*ses+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
+m5am<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1ym,na.action=na.omit)
+m5bm<-svy_vglm(homele~ses+lnincome+factor(parents)+lnage+factor(m_racel_dv)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
+
+
+```
+
+```{r}
+#m5a, m5b
+#sig
+zscore(coef2 = 0.7307301        ,coef1 =  0.331609          ,se2 = 0.1070010 ,se1 =   0.085293  )
+zscore(coef2 = 0.7501366        ,coef1 = 0.571925          ,se2 = 0.1101265  ,se1 =   0.091451   )
+
+#sig
+zscore(coef2 = 0.0020505        ,coef1 =   -0.434200           ,se2 = 0.1437446  ,se1 =   0.098542 )
+zscore(coef2 = 0.7553494       ,coef1 =  0.478372            ,se2 = 0.1184147  ,se1 =   0.095624  )
+
+
+#m5af,m5bf
+#m5af m5bf living with pa vs route out 1: to live with a partner and children sig
+zscore(coef2 = 0.548291     ,coef1 =  -0.0030190         ,se2 = 0.142913  ,se1 =   0.1103923  )
+
+zscore(coef2 =  0.555287      ,coef1 =0.3111545       ,se2 = 0.151419  ,se1 =   0.1148175   )
+#m5af m5bf living with pa vs route out 3: forming a female-headed family sig
+zscore(coef2 =  -0.427697     ,coef1 =  -0.9994162          ,se2 = 0.180789 ,se1 =   0.1302750 )
+zscore(coef2 =   0.547006     ,coef1 =  0.1821558        ,se2 = 0.168771 ,se1 =   0.1238477  )
+
+
+#m5am,m5bm notsig
+zscore(coef2 =  0.813762        ,coef1 = 0.498301         ,se2 =  0.149301  ,se1 =   0.115680    )
+zscore(coef2 =  0.855357       ,coef1 =0.694998        ,se2 = 0.154631   ,se1 =   0.123783    )
+zscore(coef2 =  0.260880    ,coef1 =-0.236385           ,se2 = 0.239437   ,se1 =   0.145697   )
+zscore(coef2 =  0.867304         ,coef1 =0.618355       ,se2 = 0.170785  ,se1 =   0.126951   )
+
+#for multinom(without weighting) ===f(1,3) also sig
+zscore(coef2 =  0.3242735         ,coef1 =-0.01393445       ,se2 = 0.1034136 ,se1 =  0.09145023   )
+zscore(coef2 =  -0.3924647         ,coef1 =-0.99820847       ,se2 = 0.1386719  ,se1 =   0.10420864   )
+
+
+```
+
+```{r}
+f1<-a_indresp[which(a_indresp$a_sex_dv==2&a_indresp$a_age_dv%in%c(25:50)),]
+f2<-m_indresp[which(m_indresp$m_sex_dv==2&m_indresp$m_age_dv%in%c(25:50)),]
+
+m1<-a_indresp[which(a_indresp$a_sex_dv==1&a_indresp$a_age_dv%in%c(25:50)),]
+m2<-m_indresp[which(m_indresp$m_sex_dv==1&m_indresp$m_age_dv%in%c(25:50)),]
+
+library(nnet)
+
+testf1 <- multinom(homele~ses+lnincome+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv, data = f1,maxit=1000)
+testf2 <- multinom(homele~ses+lnincome+factor(parents)+lnage+factor(m_racel_dv)+m_urban_dv, data = f2,maxit=1000)
+
+testm1 <- multinom(homele~ses+lnincome+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv, data = m1,maxit=1000)
+testm2 <- multinom(homele~ses+lnincome+factor(parents)+lnage+factor(m_racel_dv)+m_urban_dv, data = m2,maxit=1000)
+```
+
+```{r}
+#z tests of coefficients
+
+#m5a, m5b living with pa vs route out 1: to live with a partner and children notsig
+zscore(coef2 =  1.854276    ,coef1 = 0.5310333        ,se2 = 0.503546 ,se1 =   1.3177572  )
+
+#m5a, m5b living with pa vs route out 2: to live with a partner but no children  notsig
+zscore(coef2 =  1.536728    ,coef1 =   0.3085666       ,se2 = 0.521461,se1 =   1.3223204    )
+
+#m5a, m5b living with pa vs route out 3: forming a female-headed family notsig
+zscore(coef2 =  1.515268    ,coef1 =  0.2022064        ,se2 = 0.681866,se1 =  1.3340094  )
+
+#m5a, m5b living with pa vs route out 4: to autonomous living notsig
+zscore(coef2 =  1.843840 ,coef1 = 0.1407857      ,se2 =  0.561134,se1 =   1.3253888 )
+
+
+```
+
+```{r}
+#m5af m5bf living with pa vs route out 1: to live with a partner and children
+zscore(coef2 =  0.749914 , coef1 = 12.0537861         ,se2 =   0.774587,se1 =   1.1837970 )
+#m5af m5bf living with pa vs route out 2: to live with a partner but no children
+zscore(coef2 =  -0.308976 , coef1 = 10.7535866         ,se2 =  0.804207,se1 =   1.2019573  )
+#m5af m5bf living with pa vs route out 3: forming a female-headed family
+zscore(coef2 =  3.412036, coef1 =  14.4800983        ,se2 =   1.972420, se1 =   1.9413046 )
+#m5af m5bf living with pa vs route out 4: to autonomous living 
+zscore(coef2 =  2.340242  , coef1 = 11.3442491      ,se2 =  1.037662,se1 =   1.2178965  )
+
+```
+
+```{r}
+#males without race*ses (the interaction effect)
+
+#m5am m5bm living with pa vs route out 1: to live with a partner and children
+zscore(coef2 =   1.269554  , coef1 = -13.832995          ,se2 =   0.690399,se1 =   1.269147 )
+#m5am m5bm living with pa vs route out 2: to live with a partner but no children
+zscore(coef2 =  0.804830   , coef1 = -12.125112           ,se2 =  0.704351,se1 =   1.248133  )
+#m5am m5bm living with pa vs route out 3: forming a female-headed family
+zscore(coef2 =   1.109537   , coef1 =  -13.475487        ,se2 =   0.960035, se1 =  1.296836 )
+#m5am m5bm living with pa vs route out 4: to autonomous living 
+zscore(coef2 =  0.751535     , coef1 = -12.406946       ,se2 =  0.694352,se1 = 1.244789  )
+```
+
+```{r}
+a_indresp%>%filter(a_sex_dv==2)%>%group_by(homele,ses)%>%summarise(n=n())
+m_indresp%>%filter(m_sex_dv==2)%>%group_by(homele,ses)%>%summarise(n=n())
+```
+
+```{r}
+f1<-a_indresp[which(a_indresp$a_sex_dv==2&a_indresp$a_age_dv%in%c(25:50)),]
+f2<-m_indresp[which(m_indresp$m_sex_dv==2&m_indresp$m_age_dv%in%c(25:50)),]
+cor(f1$ses,f1$lvpab)
+cor(f2$ses,f2$lvpab)
+```
+
+```{r}
+#for females living with parents (binary)
+m0a<-svyglm(lvpab~ses+lnincome+factor(parents)*ses+lnage+factor(a_racel_dv)+a_urban_dv,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+
+m0b<-svyglm(lvpab~ses+lnincome+factor(parents)*ses+lnage+factor(m_racel_dv)+m_urban_dv,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+```
+
+#what adds power to model in wave 1 is the interaction effects between parent num n ses!!!
+
+```{r}
+#for males living with parents (binary)
+m00a<-svyglm(lvpab~ses+lnincome+factor(parents)*ses+lnage+factor(a_racel_dv)+a_urban_dv,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+
+m00b<-svyglm(lvpab~ses+lnincome+factor(parents)*ses+lnage+factor(m_racel_dv)+m_urban_dv,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+```
+
+```{r}
+#m0a, m0b notsig
+zscore(coef2 =  -0.673073, coef1 = -0.432992, se2 =  0.178793,se1 =   0.132716   )
+
+#m00a m00b
+zscore(coef2 =  -1.88098    , coef1 =  12.48633    , se2 =   0.76121,se1 =   1.02485  )
+
+#ame sig
+cames<-summary(marginaleffects(m0a,variables="ses"))
+cames2<-summary(marginaleffects(m0b,variables="ses"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+```
+
+```{r}
+library(nnet)
+
+testf1 <- multinom(homele~ses+factor(parents)+lnage+factor(a_racel_dv)+a_urban_dv, data = f1,maxit=1000)
+
+testf2 <- multinom(homele~ses+lnincome+factor(parents)*ses+lnage+factor(m_racel_dv)+m_urban_dv, data = f2,maxit=1000)
+
+test<-multinom(homele~ses+lnage+a_sex_dv+a_urban_dv+lnincome, data = a_indresp)
+summary(test)
+test2<-multinom(homele~ses+lnage+m_sex_dv, data = m_indresp)
+summary(test2)
+
+```
+
+```{r}
+testf11<-glm(lvpab~ses+factor(parents)*ses+lnage+factor(a_racel_dv)+a_urban_dv, data = f1)
+```
