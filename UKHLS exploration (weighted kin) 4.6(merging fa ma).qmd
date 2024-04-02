@@ -4,12 +4,6 @@ format: html
 editor: visual
 ---
 
-## ![](images/b6d5f184810a3d54ab89b7a1de80d0b-01.png){width="627"}
-
-## ![](images/46c52c8ab7326beadbed7c846121190.png){width="609"}
-
-![](images/f61a2763ca02315956f67024ca01ecf.png){width="560"}
-
 ## Reading and cleaning data
 
 ```{r}
@@ -34,26 +28,40 @@ library(catregs)
 library(margins)
 library(modelsummary)
 library(zoo)
+library(mice)
+library(stargazer)
+library(texreg)
+library(VIM)
+library(lattice)
+library(ggplot2)
 ```
 
 ### Cross-wave dat
 
 ```{r}
+inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
 xwavedat<-read_dta(file=paste0(inpath, "ukhls/xwavedat.dta")) %>%
  dplyr::select(pidp,maju,paju,maedqf,paedqf)
+```
+
+```{r}
+missval <- c(-9, -8, -7, -2, -1)
+for (i in 1:5) {
+  xwavedat<- xwavedat %>%
+    mutate_all(., list(~na_if(., missval[i])))
+  
+}
 ```
 
 ### Wave1
 
 ```{r}
 #wave 1 
-inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
-
 a_indresp <- read_dta(file=paste0(inpath, "ukhls/a_indresp.dta")) %>%
- dplyr::select(a_hidp, pidp, a_mastat_dv, a_strata, a_psu, a_hhorig, 
-         a_indinus_xw,a_indpxus_xw, a_ind5mus_xw,a_ivfio, a_sampst,
-         a_age_dv, a_sex_dv, a_hiqual_dv, a_paygu_dv, a_country,
-         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_nchresp,a_urban_dv,a_ohch16,a_panssec8_dv,a_manssec8_dv,a_maedqf,a_paedqf)
+ dplyr::select(pidp, a_mastat_dv, a_strata, a_psu,
+         a_indinus_xw,
+         a_age_dv, a_sex_dv, a_hiqual_dv,
+         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_urban_dv,a_panssec8_dv,a_manssec8_dv)
 
 
 a_indrespj<-a_indresp%>%dplyr::select(pidp,a_panssec8_dv,a_manssec8_dv)
@@ -124,19 +132,25 @@ l_indresp <- read_dta(file=paste0(inpath, "ukhls/l_indresp.dta")) %>%
 ```{r}
 #wave 13
 m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
- dplyr::select(m_hidp, pidp, m_mastat_dv, m_strata, m_psu, m_hhorig, 
-         m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
-         m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
-         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv,m_ohch16,m_panssec8_dv,m_manssec8_dv)
+ dplyr::select(pidp, m_mastat_dv, m_strata, m_psu, 
+         m_indpxui_xw,
+         m_age_dv, m_sex_dv, m_hiqual_dv, 
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,m_panssec8_dv,m_manssec8_dv)
+
 ```
 
 ```{r}
 # recode missing values for all variables using for loop and mutate_all
-missval <- c(-9, -8, -7, -2, -1)
 for (i in 1:5) {
   a_indresp<- a_indresp %>%
     mutate_all(., list(~na_if(., missval[i])))
 }
+
+for (i in 1:5) {
+  a_indrespj<- a_indrespj %>%
+    mutate_all(., list(~na_if(., missval[i])))
+}
+
 for (i in 1:5) {
   b_indresp<- b_indresp %>%
     mutate_all(., list(~na_if(., missval[i])))
@@ -186,16 +200,20 @@ for (i in 1:5) {
     mutate_all(., list(~na_if(., missval[i])))
   
 }
+```
 
-for (i in 1:5) {
-  xwavedat<- xwavedat %>%
-    mutate_all(., list(~na_if(., missval[i])))
-  
-}
+```{r}
+#wave 13 join
+library(plyr)
+m_indresp<-join_all(list(m_indresp,a_indrespj,b_indresp,c_indresp,d_indresp,e_indresp,f_indresp,g_indresp,h_indresp,i_indresp,j_indresp,k_indresp,l_indresp,xwavedat), by='pidp', type='left')
 
+m_indresp<-m_indresp%>% mutate(
+                           mases=coalesce(a_manssec8_dv,b_manssec8_dv,c_manssec8_dv,d_manssec8_dv,e_manssec8_dv,f_manssec8_dv,g_manssec8_dv,h_manssec8_dv,i_manssec8_dv,j_manssec8_dv,k_manssec8_dv,l_manssec8_dv,m_manssec8_dv),
+                           pases=coalesce(a_panssec8_dv,b_panssec8_dv,c_panssec8_dv,d_panssec8_dv,e_panssec8_dv,f_panssec8_dv,g_panssec8_dv,h_panssec8_dv,i_panssec8_dv,j_panssec8_dv,k_panssec8_dv,l_panssec8_dv,m_panssec8_dv)) 
+```
 
-rm(missval)
-
+```{r}
+rm(missval,a_indrespj,b_indresp,c_indresp,d_indresp,e_indresp,f_indresp,g_indresp,h_indresp,i_indresp,j_indresp,k_indresp,l_indresp,xwavedat)
 ```
 
 # Cleaning data
@@ -209,17 +227,13 @@ a_indresp$a_fimnnet_dv[a_indresp$a_fimnnet_dv<0]<-NA
 
 ```{r}
 #preparing variables for analysis (wave 1)
-#num of parents (not censored)
+#num of parents
 a_indresp$lvpam<-c(0)
 a_indresp$lvpam[a_indresp$a_pns1pno!=0]<-1
 a_indresp$lvpaf<-c(0)
 a_indresp$lvpaf[a_indresp$a_pns2pno!=0]<-1
 a_indresp$parentnum<-a_indresp$a_lvrel1+a_indresp$a_lvrel2+a_indresp$lvpam+a_indresp$lvpaf
 
-#having one & two or more parents (censored)
-a_indresp$parents<-c(0)
-a_indresp$parents[a_indresp$parentnum==1]<-1
-a_indresp$parents[a_indresp$parentnum>1]<-2
 
 #living with parents or not (biological/step/adoptive)
 a_indresp$lvpa<-a_indresp$lvpam+a_indresp$lvpaf
@@ -232,35 +246,18 @@ a_indresp$lvpab[a_indresp$lvpa!=0]<-1
 #level of education completed
 a_indresp$edu<-c(0)
 a_indresp$edu[a_indresp$a_hiqual_dv%in%c(9)]<-1 #low (everything below)
-a_indresp$edu[a_indresp$a_hiqual_dv%in%c(3,4,5)]<-3 #middle (completed A-level or secondary high school)
-a_indresp$edu[a_indresp$a_hiqual_dv%in%c(1,2)]<-4 #high (have a degree)
-a_indresp$edu[a_indresp$edu==0]<-2 #unknown n=92
+a_indresp$edu[a_indresp$a_hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+a_indresp$edu[a_indresp$a_hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+a_indresp$edu[a_indresp$edu==0]<-NA
 
 print(attr(a_indresp$a_hiqual_dv,"labels"))
-
-a_indresp$edu<-factor(a_indresp$edu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
-
+a_indresp$edu<-factor(a_indresp$edu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
 
 #making nchild_dv a binary variable
 a_indresp$child<-c(0)
 a_indresp$child[a_indresp$a_nchild_dv>=1]<-1
 
-#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
-a_indresp$partner<-c(0)
-a_indresp$partner[a_indresp$a_mastat_dv%in%c(2,3,10)]<-1
-print(attr(a_indresp$a_mastat_dv,"labels"))
-
-#makeing cohabitation a binary variable
-a_indresp$cohab<-c(0)
-a_indresp$cohab[a_indresp$a_mastat_dv%in%c(10)]<-1
-
-#making married a binary variable
-a_indresp$mar<-c(0)
-a_indresp$mar[a_indresp$a_mastat_dv%in%c(2,3)]<-1
-
-#square of age
-a_indresp$age_sq<-a_indresp$a_age_dv**2
 #age group
 a_indresp$age_group<-c(0)
 a_indresp$age_group[a_indresp$a_age_dv%in%c(16:20)]<-1
@@ -277,10 +274,6 @@ a_indresp$incomeadd<-a_indresp$a_fimnnet_dv+1
 a_indresp$lnincome<-log(a_indresp$incomeadd)
 a_indresp<-a_indresp%>%dplyr::select(-incomeadd)
 
-#nonmarital child-bearing (and child-rearing) 
-a_indresp$nc<-c(0)
-a_indresp$nc[a_indresp$mar==0 & a_indresp$child==1]<-1
-
 #racel groups 
 a_indresp$racel<-c(0)
 a_indresp$racel[a_indresp$a_racel_dv%in%c(1,2,3,4)]<-1 #Whites
@@ -293,9 +286,6 @@ a_indresp$racel<-factor(a_indresp$racel,levels=c(1,2,3,4,5),labels=c("Whites","A
 ```
 
 ```{r}
-#dummy variable for pases missing
-
-
 #father ses
 a_indresp$fases<-c(0)
 a_indresp$fases[a_indresp$pases==8]<-1 #Routine 
@@ -308,78 +298,83 @@ a_indresp$fases[a_indresp$pases==2]<-7 #Higher professional
 a_indresp$fases[a_indresp$pases==1]<-8 #Large employers & higher management 
 
 #dummy variable for pases missing
-a_indresp$fasesna<-ifelse(a_indresp$fases==0, 1, 0)
+#a_indresp$fasesna<-ifelse(a_indresp$fases==0, 1, 0)
+a_indresp$fases[a_indresp$pases==0]<-NA
 
-
-#a_indresp$fases<-factor(a_indresp$fases,levels=c(1,2,3,4,5,6,7,8),labels=c("Routine","Semi-routine","Lower supervisory & technical","Small employers & own account","Intermediate","Lower management & professional","Higher professional","Large employers & higher management"))
-
-a_indresp$fases_age<-a_indresp$fases*a_indresp$a_age_dv
-
-#a_indresp$fases<-c(0)
-#a_indresp$fases[a_indresp$pases%in%c(6,7,8)]<-1 #Routine
-#a_indresp$fases[a_indresp$pases%in%c(4,5)]<-3 #Intermediate
-#a_indresp$fases[a_indresp$pases%in%c(1,2,3)]<-4 #Managerial
-#a_indresp$fases[a_indresp$fases==0]<-2 #unknown
-#a_indresp$fases<-factor(a_indresp$fases,levels=c(1,2,3,4),labels=c("Routine","Unknown","Intermediate","Managerial"))
-
-
+a_indresp$fasesXage<-a_indresp$fases*a_indresp$a_age_dv
 
 #for parental education
 #father
 a_indresp$paedu<-c(0)
-a_indresp$paedu[a_indresp$paedqf%in%c(1,2)]<-1 #low (everything below)
-a_indresp$paedu[a_indresp$paedqf%in%c(3,4)]<-3 #middle (completed A-level or secondary high school)
-a_indresp$paedu[a_indresp$paedqf%in%c(5)]<-4 #high (have a degree)
-a_indresp$paedu[a_indresp$paedu==0]<-2
+a_indresp$paedu[a_indresp$paedqf%in%c(1,2,97)]<-1 #low (everything below, the category "other" is included)
+a_indresp$paedu[a_indresp$paedqf%in%c(3,4)]<-2 #middle (complete A-level or have some qualifications)
+a_indresp$paedu[a_indresp$paedqf%in%c(5)]<-3 #high (have a degree)
+a_indresp$paedu[a_indresp$paedu==0]<-NA
 
-a_indresp$paedu<-factor(a_indresp$paedu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
+a_indresp$paedu<-factor(a_indresp$paedu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
 #mother
 a_indresp$maedu<-c(0)
-a_indresp$maedu[a_indresp$maedqf%in%c(1,2)]<-1 #low (everything below)
-a_indresp$maedu[a_indresp$maedqf%in%c(3,4)]<-3 #middle (completed A-level or secondary high school)
-a_indresp$maedu[a_indresp$maedqf%in%c(5)]<-4 #high (have a degree)
-a_indresp$maedu[a_indresp$maedu==0]<-2
+a_indresp$maedu[a_indresp$maedqf%in%c(1,2,97)]<-1 #low (everything below, the category "other" is included)
+a_indresp$maedu[a_indresp$maedqf%in%c(3,4)]<-2 #middle (complete A-level or have some qualifications)
+a_indresp$maedu[a_indresp$maedqf%in%c(5)]<-3 #high (have a degree)
+a_indresp$maedu[a_indresp$maedu==0]<-NA
 
-a_indresp$maedu<-factor(a_indresp$maedu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
+a_indresp$maedu<-factor(a_indresp$maedu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
-#for whether mothwe working at age 14
+#for whether mother working at age 14
 a_indresp$mawork<-c(0)
 a_indresp$mawork[a_indresp$maju==2]<-1 #notworking
-a_indresp$mawork[a_indresp$maju==1]<-3 #working
-a_indresp$mawork[a_indresp$mawork==0]<-2 #others/unknown (Mother deceased/Mother not living with respondent so don't know/missing)
+a_indresp$mawork[a_indresp$maju==1]<-2 #working
+a_indresp$mawork[a_indresp$maju%in%c(3,4)]<-3 #Mother deceased/Mother not living with respondent so don't know
+a_indresp$mawork[a_indresp$mawork==0]<-NA #missing
 
-a_indresp$mawork<-factor(a_indresp$mawork,levels=c(1,2,3),labels=c("notworking","working","others/unknown"))
+a_indresp$mawork<-factor(a_indresp$mawork,levels=c(1,2,3),labels=c("notworking","working","Mother deceased/not living with respondent"))
 
 ```
 
 ```{r}
-#preparing dependent variables for multinomial regression (wave 1) homele
-##patterns of home-leaving 
-a_indresp$homele<-c(0)
+#preparing dependent variables for multinomial regression (wave 1)
+##patterns of home-leaving
+###living with parents(including those who have children)========================
+a_indresp$leave[a_indresp$lvpa!=0]<-1
+##route out 1: to live with a partner ==============================
+a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_mastat_dv%in%c(2,3,10)  #married 
+                         ]<-2 
+
+##route out 2: to live without a partner=====================
+a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_mastat_dv%in%c(0,1,4,5,6,7,8,9,10)  
+                         ]<-3 
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 1) 
+##patterns of home-leaving (distinguish between marriage and cohabitation) 
+a_indresp$ledes<-c(0)
 
 ###living with parents(including those who have children)========================
-a_indresp$homele[a_indresp$lvpa!=0]<-1
+a_indresp$ledes[a_indresp$lvpa!=0]<-1
 
 ##route out 1: to live with a partner(marriage) ==============================
-a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
-                         a_indresp$a_mastat_dv%in%c(2,3)  #married or in cohabitation
+a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_mastat_dv%in%c(2,3)  #married 
                          ]<-2 
 
 ##route out 2: to live with a partner(cohabitation) ==============================
-a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
-                         a_indresp$a_mastat_dv%in%c(10)  #married or in cohabitation
+a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
+                         a_indresp$a_mastat_dv%in%c(10)  #in cohabitation
                          ]<-3 
 
 ##route out 3: to live without a partner=====================
-###females
-a_indresp$homele[a_indresp$lvpa==0 & #not living with parents
+a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
                          a_indresp$a_mastat_dv%in%c(0,1,4,5,6,7,8,9)  #others
                          ]<-4 
 
 
 
-attr(a_indresp$homele,"labels")<-c(
+attr(a_indresp$ledes,"labels")<-c(
 "NA:n=13,having missing values in marital status;", 
 "1:living with parents;",
 "2:route out 1:leaving with partner (marriage) ;",
@@ -387,31 +382,16 @@ attr(a_indresp$homele,"labels")<-c(
 "4:route out 3:leaving without a partner")
 
 
-a_indresp$homele<-factor(a_indresp$homele,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
+a_indresp$ledes<-factor(a_indresp$ledes,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
 ```
 
 ### Wave 13
 
 ```{r}
-#m_indrespt<-m_indresp%>%left_join(m_indresp,a_indresp,b_indresp,c_indresp,d_indresp,e_indresp,f_indresp,g_indresp,h_indresp,i_indresp,j_indresp,k_indresp,l_indresp,by="pidp")
-library(plyr)
-m_indresp<-join_all(list(m_indresp,a_indrespj,b_indresp,c_indresp,d_indresp,e_indresp,f_indresp,g_indresp,h_indresp,i_indresp,j_indresp,k_indresp,l_indresp,xwavedat), by='pidp', type='left')
-
-m_indresp<-m_indresp%>% mutate(
-                           mases=coalesce(a_manssec8_dv,b_manssec8_dv,c_manssec8_dv,d_manssec8_dv,e_manssec8_dv,f_manssec8_dv,g_manssec8_dv,h_manssec8_dv,i_manssec8_dv,j_manssec8_dv,k_manssec8_dv,l_manssec8_dv,m_manssec8_dv),
-                           pases=coalesce(a_panssec8_dv,b_panssec8_dv,c_panssec8_dv,d_panssec8_dv,e_panssec8_dv,f_panssec8_dv,g_panssec8_dv,h_panssec8_dv,i_panssec8_dv,j_panssec8_dv,k_panssec8_dv,l_panssec8_dv,m_panssec8_dv)) 
-
-
-
-
-
-```
-
-```{r}
 m_indresp<-m_indresp%>%dplyr::select(pidp, m_mastat_dv, m_strata, m_psu, 
-         m_indpxui_xw,m_indinui_xw,m_ivfio, m_sampst,
-         m_age_dv, m_sex_dv, m_hiqual_dv, m_paygu_dv, m_country,
-         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_nchresp,m_urban_dv,m_ohch16,maju,paju,maedqf,paedqf,mases,pases)
+         m_indpxui_xw,
+         m_age_dv, m_sex_dv, m_hiqual_dv, 
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,maju,paju,maedqf,paedqf,mases,pases)
 ```
 
 ```{r}
@@ -421,57 +401,37 @@ m_indresp$m_fimnnet_dv[m_indresp$m_fimnnet_dv<0]<-NA
 
 ```{r}
 #preparing variables for analysis (wave 13)
-
-#num of parents (not censored, information outside the household includes step/adoptive mother and father in this wave)
+#num of parents
 m_indresp$lvpam<-c(0)
 m_indresp$lvpam[m_indresp$m_pns1pno!=0]<-1
 m_indresp$lvpaf<-c(0)
 m_indresp$lvpaf[m_indresp$m_pns2pno!=0]<-1
-m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$m_lvrel9+m_indresp$m_lvrel10+m_indresp$lvpam+m_indresp$lvpaf
+m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$lvpam+m_indresp$lvpaf
 
-#having one & two or more parents (censored)
-m_indresp$parents<-c(0)
-m_indresp$parents[m_indresp$parentnum==1]<-1
-m_indresp$parents[m_indresp$parentnum>1]<-2
 
 #living with parents or not (biological/step/adoptive)
 m_indresp$lvpa<-m_indresp$lvpam+m_indresp$lvpaf
 m_indresp<-m_indresp%>%dplyr::select(-lvpam,-lvpaf)
+
 #binary
 m_indresp$lvpab<-c(0)
 m_indresp$lvpab[m_indresp$lvpa!=0]<-1
 
-
-#levels of education completed
+#level of education completed
 m_indresp$edu<-c(0)
 m_indresp$edu[m_indresp$m_hiqual_dv%in%c(9)]<-1 #low (everything below)
-m_indresp$edu[m_indresp$m_hiqual_dv%in%c(3,4,5)]<-3 #middle (completed A-level or secondary high school)
-m_indresp$edu[m_indresp$m_hiqual_dv%in%c(1,2)]<-4 #high (have a degree)
-m_indresp$edu[m_indresp$edu==0]<-2 #unknown n=449
+m_indresp$edu[m_indresp$m_hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+m_indresp$edu[m_indresp$m_hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+m_indresp$edu[m_indresp$edu==0]<-NA
 
 print(attr(m_indresp$m_hiqual_dv,"labels"))
+m_indresp$edu<-factor(m_indresp$edu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
-m_indresp$edu<-factor(m_indresp$edu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
 
 #making nchild_dv a binary variable
 m_indresp$child<-c(0)
 m_indresp$child[m_indresp$m_nchild_dv>=1]<-1
 
-#making partner a binary variable (Married/ In a registered same-sex civil partnership/Living as couple)
-m_indresp$partner<-c(0)
-m_indresp$partner[m_indresp$m_mastat_dv%in%c(2,3,10)]<-1
-print(attr(m_indresp$m_mastat_dv,"labels"))
-
-#makeing cohabitation a binary variable
-m_indresp$cohab<-c(0)
-m_indresp$cohab[m_indresp$m_mastat_dv%in%c(10)]<-1
-
-#making married a binary variable
-m_indresp$mar<-c(0)
-m_indresp$mar[m_indresp$m_mastat_dv%in%c(2,3)]<-1
-
-#square of age
-m_indresp$age_sq<-m_indresp$m_age_dv**2
 #age group
 m_indresp$age_group<-c(0)
 m_indresp$age_group[m_indresp$m_age_dv%in%c(16:20)]<-1
@@ -482,16 +442,13 @@ m_indresp$age_group[m_indresp$m_age_dv%in%c(31:35)]<-4
 m_indresp$age_group<-factor(m_indresp$age_group,levels=c(1,2,3,4),labels=c("16-20","21-25","26-30","31-35"))
 
 #logarithm of income
+m_indresp$lnincome<-log(m_indresp$m_fimnnet_dv)
 #add 1 to all income values to avoid -inf in log transformation
 m_indresp$incomeadd<-m_indresp$m_fimnnet_dv+1
 m_indresp$lnincome<-log(m_indresp$incomeadd)
 m_indresp<-m_indresp%>%dplyr::select(-incomeadd)
 
-#nonmarital child-bearing (and child-rearing) 
-m_indresp$nc<-c(0)
-m_indresp$nc[m_indresp$mar==0 & m_indresp$child==1]<-1
-
-#racel groups
+#racel groups 
 m_indresp$racel<-c(0)
 m_indresp$racel[m_indresp$m_racel_dv%in%c(1,2,3,4)]<-1 #Whites
 m_indresp$racel[m_indresp$m_racel_dv%in%c(14,15)]<-2 #African Caribbean
@@ -501,7 +458,7 @@ m_indresp$racel[m_indresp$racel==0]<-5 #Other
 
 m_indresp$racel<-factor(m_indresp$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
 
-
+#
 ```
 
 ```{r}
@@ -517,79 +474,83 @@ m_indresp$fases[m_indresp$pases==2]<-7 #Higher professional
 m_indresp$fases[m_indresp$pases==1]<-8 #Large employers & higher management 
 
 #dummy variable for pases missing
+#m_indresp$fasesna<-ifelse(m_indresp$fases==0, 1, 0)
+m_indresp$fases[m_indresp$pases==0]<-NA
 
-m_indresp$fasesna<-ifelse(m_indresp$pases==0, 1, 0)
-
-#m_indresp$fases<-factor(m_indresp$fases,levels=c(1,2,3,4,5,6,7,8),labels=c("Routine","Semi-routine","Lower supervisory & technical","Small employers & own account","Intermediate","Lower management & professional","Higher professional","Large employers & higher management"))
-
-m_indresp$fases_age<-m_indresp$fases*m_indresp$m_age_dv
-
-#m_indresp$fases<-c(0)
-#m_indresp$fases[m_indresp$pases%in%c(6,7,8)]<-1 #Routine
-#m_indresp$fases[m_indresp$pases%in%c(4,5)]<-3 #Intermediate
-#m_indresp$fases[m_indresp$pases%in%c(1,2,3)]<-4 #Managerial
-#m_indresp$fases[m_indresp$fases==0]<-2 #unknown
-#m_indresp$fases<-factor(m_indresp$fases,levels=c(1,2,3,4),labels=c("Routine","Unknown","Intermediate","Managerial"))
-
-
+m_indresp$fasesXage<-m_indresp$fases*m_indresp$m_age_dv
 
 #for parental education
 #father
 m_indresp$paedu<-c(0)
-m_indresp$paedu[m_indresp$paedqf%in%c(1,2)]<-1 #low (everything below)
-m_indresp$paedu[m_indresp$paedqf%in%c(3,4)]<-3 #middle (completed A-level or secondary high school)
-m_indresp$paedu[m_indresp$paedqf%in%c(5)]<-4 #high (have a degree)
-m_indresp$paedu[m_indresp$paedu==0]<-2
+m_indresp$paedu[m_indresp$paedqf%in%c(1,2,97)]<-1 #low (everything below, the category "other" is included)
+m_indresp$paedu[m_indresp$paedqf%in%c(3,4)]<-2 #middle (complete A-level or have some qualifications)
+m_indresp$paedu[m_indresp$paedqf%in%c(5)]<-3 #high (have a degree)
+m_indresp$paedu[m_indresp$paedu==0]<-NA
 
-m_indresp$paedu<-factor(m_indresp$paedu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
+m_indresp$paedu<-factor(m_indresp$paedu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
 #mother
 m_indresp$maedu<-c(0)
-m_indresp$maedu[m_indresp$maedqf%in%c(1,2)]<-1 #low (everything below)
-m_indresp$maedu[m_indresp$maedqf%in%c(3,4)]<-3 #middle (completed A-level or secondary high school)
-m_indresp$maedu[m_indresp$maedqf%in%c(5)]<-4 #high (have a degree)
-m_indresp$maedu[m_indresp$maedu==0]<-2
+m_indresp$maedu[m_indresp$maedqf%in%c(1,2,97)]<-1 #low (everything below, the category "other" is included)
+m_indresp$maedu[m_indresp$maedqf%in%c(3,4)]<-2 #middle (complete A-level or have some qualifications)
+m_indresp$maedu[m_indresp$maedqf%in%c(5)]<-3 #high (have a degree)
+m_indresp$maedu[m_indresp$maedu==0]<-NA
 
-m_indresp$maedu<-factor(m_indresp$maedu,levels=c(1,2,3,4),labels=c('low',"unknown","middle","high"))
+m_indresp$maedu<-factor(m_indresp$maedu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
-#for whether mothwe working at age 14
+#for whether mother working at age 14
 m_indresp$mawork<-c(0)
 m_indresp$mawork[m_indresp$maju==2]<-1 #notworking
-m_indresp$mawork[m_indresp$maju==1]<-3 #working
-m_indresp$mawork[m_indresp$mawork==0]<-2 #others/unknown (Mother deceased/Mother not living with respondent so don't know/missing)
+m_indresp$mawork[m_indresp$maju==1]<-2 #working
+m_indresp$mawork[m_indresp$maju%in%c(3,4)]<-3 #Mother deceased/Mother not living with respondent so don't know
+m_indresp$mawork[m_indresp$mawork==0]<-NA #missing
 
-m_indresp$mawork<-factor(m_indresp$mawork,levels=c(1,2,3),labels=c("notworking","working","others/unknown"))
+m_indresp$mawork<-factor(m_indresp$mawork,levels=c(1,2,3),labels=c("notworking","working","Mother deceased/not living with respondent"))
+
+```
+
+```{r}
+#preparing dependent variables for multinomial regression (wave 1)
+##patterns of home-leaving
+###living with parents(including those who have children)========================
+m_indresp$leave[m_indresp$lvpa!=0]<-1
+##route out 1: to live with a partner ==============================
+m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_mastat_dv%in%c(2,3,10)  #married 
+                         ]<-2 
+
+##route out 2: to live without a partner=====================
+m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_mastat_dv%in%c(0,1,4,5,6,7,8,9,10)  
+                         ]<-3 
 ```
 
 ```{r}
 #preparing dependent variables for multinomial regression (wave 13) 
 ##patterns of home-leaving 
-m_indresp$homele<-c(0)
+m_indresp$ledes<-c(0)
 
 ###living with parents(including those who have children)========================
-m_indresp$homele[m_indresp$lvpa!=0]<-1
+m_indresp$ledes[m_indresp$lvpa!=0]<-1
 
 ##route out 1: to live with a partner(marriage) ==============================
-m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
-                         m_indresp$m_mastat_dv%in%c(2,3)  #married or in cohabitation
+m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_mastat_dv%in%c(2,3)  #married
                          ]<-2 
 
 ##route out 2: to live with a partner(cohabitation) ==============================
-m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
-                         m_indresp$m_mastat_dv%in%c(10)  #married or in cohabitation
+m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
+                         m_indresp$m_mastat_dv%in%c(10)  #in cohabitation
                          ]<-3 
 
 ##route out 3: to live without a partner=====================
 ###females
-m_indresp$homele[m_indresp$lvpa==0 & #not living with parents
+m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
                          m_indresp$m_mastat_dv%in%c(0,1,4,5,6,7,8,9)  #others
                          ]<-4 
 
 
-
-
-
-attr(m_indresp$homele,"labels")<-c(
+attr(m_indresp$ledes,"labels")<-c(
 "NA:n=80,having missing values in marital status;", 
 "1:living with parents;",
 "2:route out 1:leaving with partner (marriage) ;",
@@ -597,7 +558,7 @@ attr(m_indresp$homele,"labels")<-c(
 "4:route out 3:leaving without a partner")
 
 
-m_indresp$homele<-factor(m_indresp$homele,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
+m_indresp$ledes<-factor(m_indresp$ledes,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
 ```
 
 ## Adopt the weightings
@@ -608,7 +569,7 @@ options(survey.lonely.psu="adjust")
 svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
                          weights=~a_indinus_xw, data=a_indresp)
 
-svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indinui_xw, data=m_indresp)
+svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indpxui_xw, data=m_indresp)
 
 #subset the data for respondents aged 25-50
 svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(16:35))
@@ -629,20 +590,668 @@ svy_indresp2ym<-subset(svy_indresp2y, m_sex_dv%in%c(1))
 
 ```
 
-## Model building
+## Model building with imputations
 
-### Model 1
+### dealing with haven issues
 
 ```{r}
-#females
-m1af<-svyglm(lvpab~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+a_indrespt<-a_indresp
+a_indrespty<-a_indresp[which(a_indresp$a_age_dv%in%c(16:35)),]
+a_indresptf<-a_indrespty[which(a_indrespty$a_sex_dv%in%c(2)),]
 
-m1bf<-svyglm(lvpab~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
+m_indrespt<-m_indresp
+m_indrespty<-m_indresp[which(m_indresp$m_age_dv%in%c(16:35)),]
+m_indresptf<-m_indrespty[which(m_indrespty$m_sex_dv%in%c(2)),]
+```
+
+```{r}
+#wave 1
+a_indrespt<-a_indrespt%>%dplyr::select(a_indinus_xw,a_strata,a_psu,a_mastat_dv,a_sex_dv,a_nchild_dv,a_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
+
+#as numeric
+a_indrespt$a_indinus_xw<-haven::zap_labels(a_indrespt$a_indinus_xw)
+a_indrespt$lnincome<-haven::zap_labels(a_indrespt$lnincome)
+a_indrespt$fasesXage<-haven::zap_labels(a_indrespt$fasesXage)
+a_indrespt$fases<-haven::zap_labels(a_indrespt$fases)
+a_indrespt$mases<-haven::zap_labels(a_indrespt$mases)
+
+#as factor
+a_indrespt$a_mastat_dv<-haven::as_factor(a_indrespt$a_mastat_dv)
+a_indrespt$a_strata<-haven::as_factor(a_indrespt$a_strata)
+a_indrespt$a_psu<-haven::as_factor(a_indrespt$a_psu)
+a_indrespt$a_sex_dv<-haven::as_factor(a_indrespt$a_sex_dv)
+a_indrespt$a_nchild_dv<-haven::as_factor(a_indrespt$a_nchild_dv)
+a_indrespt$a_urban_dv<-haven::as_factor(a_indrespt$a_urban_dv)
+a_indrespt$lvpab<-haven::as_factor(a_indrespt$lvpab)
+a_indrespt$racel<-haven::as_factor(a_indrespt$racel)
+a_indrespt$ledes<-haven::as_factor(a_indrespt$ledes)
+a_indrespt$mawork <-haven::as_factor(a_indrespt$mawork)
+a_indrespt$edu<-haven::as_factor(a_indrespt$edu)
+a_indrespt$age_group<-haven::as_factor(a_indrespt$age_group)
+a_indrespt$paedu <-haven::as_factor(a_indrespt$paedu )
+a_indrespt$maedu  <-haven::as_factor(a_indrespt$maedu )
+
+
+#wave 13 a_indinus_xw
+m_indrespt<-m_indrespt%>%dplyr::select(m_indpxui_xw,m_strata,m_psu,m_mastat_dv,m_sex_dv,m_nchild_dv,m_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
+
+#as numeric
+m_indrespt$m_indpxui_xw<-haven::zap_labels(m_indrespt$m_indpxui_xw)
+m_indrespt$lnincome<-haven::zap_labels(m_indrespt$lnincome)
+m_indrespt$fasesXage<-haven::zap_labels(m_indrespt$fasesXage)
+m_indrespt$fases<-haven::zap_labels(m_indrespt$fases)
+m_indrespt$mases<-haven::zap_labels(m_indrespt$mases)
+
+#as factor
+m_indrespt$m_mastat_dv<-haven::as_factor(m_indrespt$m_mastat_dv)
+m_indrespt$m_strata<-haven::as_factor(m_indrespt$m_strata)
+m_indrespt$m_psu<-haven::as_factor(m_indrespt$m_psu)
+m_indrespt$m_sex_dv<-haven::as_factor(m_indrespt$m_sex_dv)
+m_indrespt$m_nchild_dv<-haven::as_factor(m_indrespt$m_nchild_dv)
+m_indrespt$m_urban_dv<-haven::as_factor(m_indrespt$m_urban_dv)
+m_indrespt$lvpab<-haven::as_factor(m_indrespt$lvpab)
+m_indrespt$racel<-haven::as_factor(m_indrespt$racel)
+m_indrespt$ledes<-haven::as_factor(m_indrespt$ledes)
+m_indrespt$mawork <-haven::as_factor(m_indrespt$mawork)
+m_indrespt$edu<-haven::as_factor(m_indrespt$edu)
+m_indrespt$age_group<-haven::as_factor(m_indrespt$age_group)
+m_indrespt$paedu <-haven::as_factor(m_indrespt$paedu )
+m_indrespt$maedu  <-haven::as_factor(m_indrespt$maedu )
+```
+
+```{r}
+#m_indrespimp<-sapply(m_indresptf, haven::zap_labels)
+
+#factorial variables will considerably reduce the speed of imputation
+
+#Wave 1 Number of logged events: 396; Time difference of 1.090519 hours
+#Time difference of 5.846147 mins  Warning: Number of logged events: 250 
+varnames_a<-c("a_mastat_dv","a_sex_dv","a_nchild_dv","a_urban_dv","mases","lvpab","edu","age_group","lnincome","racel","fases","fasesXage","paedu","maedu","mawork","leave","ledes")
+start.time <- Sys.time() 
+
+imputations_a<-mice(a_indrespt,pred=quickpred(a_indrespt,include= 
+varnames_a,exclude= c("a_indinus_xw","a_strata","a_psu")))
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#Wave 13 Number of logged events: 314 Time difference of 1.090526 hours
+#Time difference of 5.846147 mins  Warning: Number of logged events: 250 
+varnames_m<-c("m_mastat_dv","m_sex_dv","m_nchild_dv","m_urban_dv","mases","lvpab","edu","age_group","lnincome","racel","fases","fasesXage","paedu","maedu","mawork","leave","ledes")
+
+start.time <- Sys.time() 
+
+imputations_b<-mice(m_indrespt,pred=quickpred(m_indrespt,include= 
+varnames_m,exclude= c("m_indpxui_xw","m_strata","m_psu")))
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+```
+
+```         
+start.time <- Sys.time() ...Relevent codes... end.time <- Sys.time() time.taken <- end.time - start.time time.taken
+```
+
+### Wave 1 females 
+
+```{r}
+#with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
+
+lm_svy_af <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Female" )
+    #run the model
+    model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, summary(model)$coef[,2])
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  #we can also grap n and p from the last model since 
+  #they should be the same across all iterations
+  n <- nobs(model)
+  p <- length(model$coefficients)-1
+  
+  #return everything in a list
+  return(list(coef=coefficients,
+              n=n))
+}
+
+
+# for model 2 and 3 =============================================================
+lm_svy_af_2 <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Female"  )
+    #run the model
+    model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, SE(model))
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  
+  
+  #return everything in a list
+  return(list(coef=coefficients))
+}
+
+
+```
+
+```{r}
+#running models
+
+#m1 Time difference of 5.143367 mins
+start.time <- Sys.time() 
+
+m1af_imp<-lm_svy_af(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+#m2 Time difference of 18.08427 mins
+start.time <- Sys.time() 
+
+m2af_imp<-lm_svy_af_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#m3 Time difference of 10.00591 mins
+start.time <- Sys.time() 
+
+m3af_imp<-lm_svy_af_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+```
+
+### Wave 1 males 
+
+```{r}
+#with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
+
+lm_svy_am <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Male"  )
+    #run the model
+    model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, summary(model)$coef[,2])
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  #we can also grap n and p from the last model since 
+  #they should be the same across all iterations
+  n <- nobs(model)
+  p <- length(model$coefficients)-1
+  
+  #return everything in a list
+  return(list(coef=coefficients,
+              n=n))
+}
+
+
+# for model 2 and 3 =============================================================
+lm_svy_am_2 <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Male" )
+    #run the model
+    model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, SE(model))
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  
+  
+  #return everything in a list
+  return(list(coef=coefficients))
+}
+```
+
+```{r}
+#m1 Time difference of 5.283394 mins
+start.time <- Sys.time() 
+
+m1am_imp<-lm_svy_am(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+#m2 Time difference of 17.32093 mins
+start.time <- Sys.time() 
+
+m2am_imp<-lm_svy_am_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#m3 Time difference of 10.53404 mins
+start.time <- Sys.time() 
+
+m3am_imp<-lm_svy_am_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+```
+
+### Wave 13 females
+
+```{r}
+#with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
+
+lm_svy_mf <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~m_psu, strata=~m_strata, 
+                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Female" )
+    #run the model
+    model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, summary(model)$coef[,2])
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  #we can also grap n and p from the last model since 
+  #they should be the same across all iterations
+  n <- nobs(model)
+  p <- length(model$coefficients)-1
+  
+  #return everything in a list
+  return(list(coef=coefficients,
+              n=n))
+}
+
+
+# for model 2 and 3 =============================================================
+lm_svy_mf_2 <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <- subset(svydesign(id=~m_psu, strata=~m_strata, 
+                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Female" )
+    #run the model
+    model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, SE(model))
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  
+  
+  #return everything in a list
+  return(list(coef=coefficients))
+}
+
+
+```
+
+```{r}
+#running models
+
+#m1 Time difference of 2.939297 mins
+start.time <- Sys.time() 
+
+m1bf_imp<-lm_svy_mf(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+#m2 Time difference of 8.87294 mins
+start.time <- Sys.time() 
+
+m2bf_imp<-lm_svy_mf_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#m3 Time difference of 4.866161 mins
+start.time <- Sys.time() 
+
+m3bf_imp<-lm_svy_mf_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+```
+
+### Wave 13 males
+
+```{r}
+#with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
+
+lm_svy_mm <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <-subset(svydesign(id=~m_psu, strata=~m_strata, 
+                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Male")
+    
+    #run the model
+    model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, summary(model)$coef[,2])
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  #we can also grap n and p from the last model since 
+  #they should be the same across all iterations
+  n <- nobs(model)
+  p <- length(model$coefficients)-1
+  
+  #return everything in a list
+  return(list(coef=coefficients,
+              n=n))
+}
+
+
+# for model 2 and 3 =============================================================
+lm_svy_mm_2 <- function(formula, imputations) {
+  options(survey.lonely.psu="adjust")
+  
+  #setting up null objects allows us to easily add results
+  #later
+  b <- se<- NULL
+  
+  #now loop through our imputations and run the model
+  for(i in 1:imputations$m) {
+    #grab the complete dataset
+    imputation <- complete(imputations, i)
+    #create the design effect object
+    imputation.svy <-subset(svydesign(id=~m_psu, strata=~m_strata, 
+                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Male")
+        
+    #run the model
+    model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
+    #collect the results
+    b <- cbind(b, coef(model))
+    se <- cbind(se, SE(model))
+  }
+  
+  #now pool the results
+  b.pool <- apply(b, 1, mean)
+  between.var <- apply(b, 1, var)
+  within.var <- apply(se^2, 1, mean)
+  se.pool <- sqrt(within.var+between.var+between.var/imputations$m) 
+  t.pool <- b.pool/se.pool 
+  pvalue.pool <- (1-pnorm(abs(t.pool)))*2 
+  coefficients <- data.frame(b.pool, se.pool, t.pool, pvalue.pool)
+  
+  
+  #return everything in a list
+  return(list(coef=coefficients))
+}
+
+
+
+```
+
+```{r}
+#m1 Time difference of 3.179687 mins
+start.time <- Sys.time() 
+
+m1bm_imp<-lm_svy_mm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#m2 Time difference of 8.01764 mins
+start.time <- Sys.time() 
+
+m2bm_imp<-lm_svy_mm_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#m3 Time difference of 4.359161 mins
+start.time <- Sys.time() 
+
+m3bm_imp<-lm_svy_mm_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+```
+
+```{r}
+fitm1b <- with(imputations, glm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=binomial(link="logit")))
+summary(pool(fitm1b))
+```
+
+## Plotting results
+
+```{r}
+convertModel <- function(model) {
+  tr <- createTexreg(
+    coef.names = rownames(model$coef), 
+    coef = model$coef$b.pool, 
+    se = model$coef$se.pool, 
+    pvalues = model$coef$pvalue.pool,
+  )
+}
+#compare males and females in wave 1
+ af_m1<-screenreg(lapply(list(m1af_imp, m1am_imp), convertModel))
+ af_m2<-screenreg(lapply(list(m2af_imp, m2am_imp), convertModel))
+ af_m3<-screenreg(lapply(list(m3af_imp, m3am_imp), convertModel),file="compare males and females in wave 1.doc",model.names = c("Wave 1", "Wave 13"),omit.coef =c("(Intercept):1", "(Intercept):2", "age_group21-25:1","age_group21-25:2","age_group26-30:1","age_group26-30:2" ,"age_group31-35:1","age_group31-35:2","factor(edu)middle:1", "factor(edu)middle:2", "factor(edu)high:1", "factor(edu)high:2", "factor(racel)African Caribbean:1",   "factor(racel)African Caribbean:2" , "factor(racel)Indiani,Pakistani, Bangladeshi:1", "factor(racel)Indiani,Pakistani, Bangladeshi:2" ,   "factor(racel)Other Asian:1",     "factor(racel)Other Asian:2",
+"factor(racel)Other:1", "factor(racel)Other:2", "m_urban_dvrural area:1", "m_urban_dvrural area:2" ))
+
+#compare males and females in wave 13
+ mf_m1<-screenreg(lapply(list(m1bf_imp, m1bm_imp), convertModel))
+ mf_m2<-screenreg(lapply(list(m2bf_imp, m2bm_imp), convertModel))
+ mf_m3<-screenreg(lapply(list(m3bf_imp, m3bm_imp), convertModel))
+ 
+#compare females in wave 13 and wave 1
+ bf_m1<-screenreg(lapply(list(m1af_imp, m1bf_imp), convertModel))
+ bf_m2<-screenreg(lapply(list(m2af_imp, m2bf_imp), convertModel))
+ bf_m3<-screenreg(lapply(list(m3af_imp, m3bf_imp), convertModel))
+ 
+ #compare males in wave 13 and wave 1
+ bm_m1<-screenreg(lapply(list(m1am_imp, m1bm_imp), convertModel))
+ bm_m2<-screenreg(lapply(list(m2am_imp, m2bm_imp), convertModel))
+ bm_m3<-screenreg(lapply(list(m3am_imp, m3bm_imp), convertModel))
+        
+```
+
+## Assumption checking
+
+### imputation
+
+ <https://stats.oarc.ucla.edu/r/faq/how-do-i-perform-multiple-imputation-using-predictive-mean-matching-in-r/>
+
+```{r}
+a_indrespy<-a_indresp[which(a_indresp$a_age_dv%in%c(16:35)),]
+m_indrespy<-m_indresp[which(m_indresp$m_age_dv%in%c(16:35)),]
+```
+
+```{r}
+marginplot(a_indrespy[c(17, 20)], col = c("blue", "red", "orange"))
+```
+
+The box plots are blue for observed values and red for missing values
+
+Evidence supporting MAR over MCAR would be if the distribution of **x2** for those observations with missing information for **y1** or **y4** were much higher or much lower than those of the non-missing observations. In the above graph, the boxplots appear to mostly overlap once again providing support for the assumption of MCAR.
+
+```{r}
+pbox(a_indrespy, pos = 17)
+```
+
+```{r}
+pbox(m_indresp, pos = 17)
+```
+
+# Model building without imputations
+
+## Model 1
+
+```{r}
+#for females
+#without imputation 
+#females
+m1af<-svyglm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,design=svy_indresp1yf,na.action=na.omit,family=quasibinomial)
+
+m1bf<-svyglm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,design=svy_indresp2yf,na.action=na.omit,family=quasibinomial)
 
 #males
-m1am<-svyglm(lvpab~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
+m1am<-svyglm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,design=svy_indresp1ym,na.action=na.omit,family=quasibinomial)
 
-m1bm<-svyglm(lvpab~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
+m1bm<-svyglm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,design=svy_indresp2ym,na.action=na.omit,family=quasibinomial)
 
 ```
 
@@ -650,94 +1259,207 @@ m1bm<-svyglm(lvpab~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+fact
 #z tests of coefficients
 zscore <- function(coef2,coef1,se2,se1){(coef2-coef1)/sqrt((se2)**2+(se1)**2)
 }
-#for females 
-#fases sig
-zscore(coef2 =   0.063647       ,coef1=  0.457948      , se2= 0.176766 , se1= 0.074331)
+#females 
+#fases
+zscore(coef2 =    1.35783  , coef1=  0.493502       , se2= 0.46276 , se1= 0.084185 )
 #maedu (high)
-zscore(coef2 =  0.11711     ,coef1= -0.49603      , se2=0.48552 , se1=0.19485)
+zscore(coef2 = -0.16265      ,coef1= -0.484515      , se2=0.53702   , se1=0.202592)
 #paedu (high)
-zscore(coef2 =   0.72144       ,coef1= -0.33605     , se2=0.58306  , se1=0.18462)
+zscore(coef2 =   0.50519       ,coef1=  -0.200648       , se2=0.57399   , se1=0.185489  )
 #mawork sig
-zscore(coef2 = 0.11440          , coef1= -0.79786        , se2=0.25604    , se1= 0.36049  )
+zscore(coef2 =  -0.38087             , coef1=  0.359646         , se2= 0.31075    , se1= 0.113000  )
 
 
-#for males maedu (high) 
-#fases(intermediate vs routine)
-zscore(coef2 =  -0.43604          ,coef1=  -0.65553        , se2= 1.21808 , se1=  0.27198  )
-#fases(Managerial vs routine)
-zscore(coef2 =   -0.99214         ,coef1=  -1.12614           , se2=  0.91402 , se1= 0.24435)
-
+#males 
+#fases
+zscore(coef2 =  0.77227           ,coef1=   0.292779         , se2=  0.66703 , se1=  0.093648   )
 #maedu (high)
-zscore(coef2 =   -0.45440        ,coef1=-0.38275        , se2=0.49867 , se1=0.22246)
+zscore(coef2 =    -0.79371           ,coef1=-0.188297        , se2=0.63461   , se1=0.218553)
 #paedu (high)
-zscore(coef2 =  -0.70010          ,coef1=  -0.46996        , se2=0.62494   , se1=0.22321 )
+zscore(coef2 =   -0.19252             ,coef1= -0.320714          , se2=0.58333   , se1=0.218249    )
 #mawork sig
-zscore(coef2 =  0.04887           , coef1=  -1.06488           , se2=0.30546    , se1=  0.29751  )
+zscore(coef2 =  -0.63024              , coef1= 0.181253           , se2= 0.35183    , se1=  0.131726  )
 
 
+```
+
+```{r}
 #ames
-cames<-summary(marginaleffects(m1af,variables="fases"))
-cames2<-summary(marginaleffects(m1bf,variables="fases"))
+#females difference -0.122  p.value  0.021
+cames<-summary(marginaleffects(m1af,variables="mawork"))
+cames2<-summary(marginaleffects(m1bf,variables="mawork"))
+came<-rbind(cames,cames2)
+compare.margins(came$estimate,came$std.error)
+
+#males difference -0.141; p.value  0.017
+cames<-summary(marginaleffects(m1am,variables="mawork"))
+cames2<-summary(marginaleffects(m1bm,variables="mawork"))
 came<-rbind(cames,cames2)
 compare.margins(came$estimate,came$std.error)
 ```
 
-### Model 2
+## Model 2
 
 ```{r}
-m2af<-svy_vglm(homele~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1yf,na.action=na.omit)
+m2af<-svy_vglm(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1yf,na.action=na.omit)
 
-m2bf<-svy_vglm(homele~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2yf,na.action=na.omit)
+m2bf<-svy_vglm(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2yf,na.action=na.omit)
 
-m2am<-svy_vglm(homele~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1ym,na.action=na.omit)
+m2am<-svy_vglm(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1ym,na.action=na.omit)
 
-m2bm<-svy_vglm(homele~fases+factor(fasesna)+fases_age+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
+m2bm<-svy_vglm(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
 
 ```
 
 ```{r}
-#for females
-#marriage
-#fases
-zscore(coef2 =    -1.45005268         ,coef1=  -0.2625841         , se2= 0.67465207  , se1= 0.2837995   )
-#maedu (high)
-zscore(coef2 =   0.76056408        ,coef1=    -0.7450343          , se2= 0.59601742  , se1=0.8028482 )
-#paedu (high) sig
-zscore(coef2 =    -1.63005783           ,coef1= 1.3112495        , se2=  0.83099894  , se1=0.8272417 )
-#mawork sig
-zscore(coef2 =    -1.70698039            , coef1=    0.8807060          , se2=0.56328440       , se1= 1.0444891   )
+#z test for coefficients
+#females
+##cohabitation
+###pases
+zscore(coef2 =  -1.145945               ,coef1=   -0.5279231          , se2=  0.578323 , se1= 0.1067982    )
+###maedu(high)
+zscore(coef2 =  0.535709             ,coef1=    0.3910630          , se2=  0.647512   , se1=  0.2386345   )
+###paedu(high)
+zscore(coef2 = -0.408988           ,coef1=   -0.0225736         , se2=  0.690724, se1= 0.2202824   )
+###mawork 
+zscore(coef2 =  0.247904          ,coef1=   -0.2549268        , se2=  0.359905 , se1=  0.1396798   )
+
+##marriage
+###pases
+zscore(coef2 = -1.358326          ,coef1=   -0.7566254          , se2=  0.563529 , se1= 0.1290402   )
+###maedu(high)
+zscore(coef2 =   0.358469            ,coef1=    0.2141034         , se2=  0.612275 , se1=  0.2432039   )
+###paedu(high)
+zscore(coef2 =   -0.120479          ,coef1=    0.3031643          , se2=  0.632659  , se1=  0.2209672     )
+###mawork sig=1.97 not sig coefficient
+zscore(coef2 = 0.391774           ,coef1=  -0.3863171          , se2=  0.371241 , se1=  0.1345737   )
+
+##without a partner
+###pases
+zscore(coef2 =  -1.604960        ,coef1=    -0.4148343           , se2=  0.626037 , se1= 0.0975044    )
+###maedu(high)
+zscore(coef2 =    -0.165066           ,coef1=    0.6751570        , se2=   0.606883 , se1=  0.2180539   )
+###paedu(high)
+zscore(coef2 =    -0.915336          ,coef1=     0.2940644          , se2=   0.634411  , se1=   0.2040251     )
+###mawork sig=1.97 sig cof for wave 1, not sig for wave 13
+zscore(coef2 =  0.384831           ,coef1=  -0.4305743          , se2=  0.394867 , se1=  0.1235926   )
 
 
-#cohabitation-------------
-#fases(intermediate vs routine)
-zscore(coef2 =  1.702344        ,coef1= 1.718910         , se2= 0.897677, se1= 1.233377 )
-#fases(managerial vs routine) sig
-zscore(coef2 =  -11.455961         ,coef1=   0.974550      , se2= 1.178620 , se1= 1.074170)
-#maedu (high)
-zscore(coef2 =  0.929444        ,coef1=    -0.452433        , se2=0.613574 , se1=0.758224 )
-#paedu (high) sig
-zscore(coef2 =   -1.920809         ,coef1= 1.269715      , se2=0.918232  , se1=0.825386 )
-#mawork sig
-zscore(coef2 = -0.796733           , coef1= 1.137021        , se2= 0.576585    , se1= 1.008983  )
+#males
+##cohabitation
+###pases
+zscore(coef2 = -0.1573351         ,coef1=    -0.4207956           , se2=  0.8356579  , se1= 0.1462146     )
+###maedu(high)
+zscore(coef2 =    0.7581093              ,coef1=    0.0648927       , se2=   0.8468744 , se1=  0.2569212   )
+###paedu(high)
+zscore(coef2 =    -0.0895241           ,coef1=      -0.1840590         , se2=    0.7805476   , se1=   0.2627747     )
+###mawork sig=2.09847 not sig coefficient
+zscore(coef2 =   1.0827787             ,coef1=  -0.1310800           , se2=   0.5570283  , se1=   0.1559587   )
 
-#leaving without a partner
-#fases(intermediate vs routine)
-zscore(coef2 =  2.289674          ,coef1= 0.140887           , se2= 1.208461, se1= 0.226588  )
-#fases(managerial vs routine) sig
-zscore(coef2 =   0.848041            ,coef1=   0.110264         , se2= 1.386789 , se1= 0.228390)
-#maedu (high)
-zscore(coef2 =  -0.300503            ,coef1=     0.643790        , se2=0.508848, se1=0.208052   )
-#paedu (high) sig
-zscore(coef2 =  -0.462933           ,coef1= 0.257063       , se2=0.553129   , se1=0.199077 )
-#mawork sig
-zscore(coef2 =  -0.017018              , coef1= 0.802071           , se2=  0.277055    , se1= 0.431704 )
+##marriage
+###pases
+zscore(coef2 = -0.5434834        ,coef1=     -1.0634425           , se2=  0.8331357  , se1= 0.1632331     )
+###maedu(high)
+zscore(coef2 =     1.4201381               ,coef1=   0.2325718        , se2=    0.7789965   , se1=  0.2625822   )
+###paedu(high)
+zscore(coef2 =    -0.1181511           ,coef1=      0.1469352         , se2=    0.7352541   , se1=   0.2439483     )
+###mawork
+zscore(coef2 =    0.3984417           ,coef1=  -0.0598869            , se2=  0.4306555   , se1=   0.1543132   )
 
+
+##without a partner
+###pases
+zscore(coef2 = -1.1276304         ,coef1=     -0.1783426          , se2=  0.7328520 , se1= 0.1021658      )
+###maedu(high)
+zscore(coef2 =      0.4877030                ,coef1=    0.2378884         , se2=     0.7266739   , se1=   0.2431004       )
+###paedu(high)
+zscore(coef2 =     0.6922228           ,coef1=       0.6772597          , se2=    0.6848506    , se1=   0.2416268     )
+###mawork
+zscore(coef2 =    0.5349542             ,coef1= -0.3293337            , se2=  0.4310773   , se1=    0.1505320    )
+
+```
+
+```{r}
+#m2af sig 
+#fases:1,2,3 -
+#factor(mawork)working:1,3 -
+#factor(maedu)high:3 +
+
+
+#m2bf sig
+#fases:1,2,3 -
+
+#m2am sig
+#fases:1,2,3 -
+#factor(mawork)working:3 -
+
+#m2bm sig none
+
+```
+
+## Model 3
+
+```{r}
+m3af<-svy_vglm(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1yf,na.action=na.omit)
+
+m3bf<-svy_vglm(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2yf,na.action=na.omit)
+
+m3am<-svy_vglm(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,family=multinomial(refLevel=1),design=svy_indresp1ym,na.action=na.omit)
+
+m3bm<-svy_vglm(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=multinomial(refLevel=1),design=svy_indresp2ym,na.action=na.omit)
+```
+
+```{r}
+#z test for coefficients
+#females
+##with partners
+###pases
+zscore(coef2 =     -1.4293392                  ,coef1=  -0.4570019             , se2=  0.5268451    , se1=   0.0878269   )
+###maedu(high)
+
+###paedu(high)
+
+###mawork 
 
 
 ```
 
 ```{r}
-#for males
-#cohabitation
+#m3bm sig
+#mawork 2 +
 
+#m3am sig
+#fases 1,2 -
+
+
+#m3bf
+#fases 1,2 -
+
+#m3af
+#fases 1,2-
+#mawork 1,2-
+#maedu high +
+```
+
+```{r}
+#whether mother working when male respondents age 14 have higher predicability of home-leaving without a partner in wave 13 than wave 1
+#mawork sig at wave 13 not wave 1
+zscore(coef2=   0.799274      ,coef1= -0.2217087        ,se2= 0.395233   ,se1= 0.1357911)
+
+#for females the effect direction is reversed, with effects only sig at wave 1
+zscore(coef2=    0.3330332      ,coef1=  -0.3454488         ,se2= 0.3347052   ,se1=  0.1172492)
+
+```
+
+```{r}
+
+testa<-a_indresptf%>%dplyr::select(leave,fases,fasesXage,age_group,mawork,maedu,paedu,edu,racel,a_urban_dv,a_sex_dv)
+test1<-complete.cases(testa)
+table(test1)
+
+testb<-m_indrespt%>%dplyr::select(leave,fases,fasesXage,age_group,mawork,maedu,paedu,edu,racel,m_urban_dv,m_sex_dv)
+test2<-complete.cases(testb)
+table(test2)
+
+#comple cases of males and females in wave 1 and 13: 434, 3927
 ```
