@@ -561,35 +561,6 @@ attr(m_indresp$ledes,"labels")<-c(
 m_indresp$ledes<-factor(m_indresp$ledes,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
 ```
 
-## Adopt the weightings
-
-```{r}
-options(survey.lonely.psu="adjust")
-
-svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
-                         weights=~a_indinus_xw, data=a_indresp)
-
-svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indpxui_xw, data=m_indresp)
-
-#subset the data for respondents aged 25-50
-svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(16:35))
-
-svy_indresp2y<-subset(svy_indresp2, m_age_dv%in%c(16:35))
-
-
-#for males and females
-#females
-svy_indresp1yf<-subset(svy_indresp1y, a_sex_dv%in%c(2))
-svy_indresp2yf<-subset(svy_indresp2y, m_sex_dv%in%c(2))
-
-
-#males
-svy_indresp1ym<-subset(svy_indresp1y, a_sex_dv%in%c(1))
-svy_indresp2ym<-subset(svy_indresp2y, m_sex_dv%in%c(1))
-
-
-```
-
 ## Model building with imputations
 
 ### dealing with haven issues
@@ -605,6 +576,7 @@ m_indresptf<-m_indrespty[which(m_indrespty$m_sex_dv%in%c(2)),]
 ```
 
 ```{r}
+#not ordered: mastat_dv,sex_dv,urban_dv,lvpab,racel,ledes,leave,mawork
 #wave 1
 a_indrespt<-a_indrespt%>%dplyr::select(a_indinus_xw,a_strata,a_psu,a_mastat_dv,a_sex_dv,a_nchild_dv,a_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
 
@@ -615,22 +587,23 @@ a_indrespt$fasesXage<-haven::zap_labels(a_indrespt$fasesXage)
 a_indrespt$fases<-haven::zap_labels(a_indrespt$fases)
 a_indrespt$mases<-haven::zap_labels(a_indrespt$mases)
 
+
 #as factor
 a_indrespt$a_mastat_dv<-haven::as_factor(a_indrespt$a_mastat_dv)
 a_indrespt$a_strata<-haven::as_factor(a_indrespt$a_strata)
 a_indrespt$a_psu<-haven::as_factor(a_indrespt$a_psu)
-a_indrespt$a_sex_dv<-haven::as_factor(a_indrespt$a_sex_dv)
 a_indrespt$a_nchild_dv<-haven::as_factor(a_indrespt$a_nchild_dv)
-a_indrespt$a_urban_dv<-haven::as_factor(a_indrespt$a_urban_dv)
 a_indrespt$lvpab<-haven::as_factor(a_indrespt$lvpab)
 a_indrespt$racel<-haven::as_factor(a_indrespt$racel)
 a_indrespt$ledes<-haven::as_factor(a_indrespt$ledes)
+a_indrespt$leave<-haven::as_factor(a_indrespt$leave)
 a_indrespt$mawork <-haven::as_factor(a_indrespt$mawork)
 a_indrespt$edu<-haven::as_factor(a_indrespt$edu)
 a_indrespt$age_group<-haven::as_factor(a_indrespt$age_group)
 a_indrespt$paedu <-haven::as_factor(a_indrespt$paedu )
 a_indrespt$maedu  <-haven::as_factor(a_indrespt$maedu )
-
+a_indrespt$a_urban_dv<-haven::as_factor(a_indrespt$a_urban_dv)
+a_indrespt$a_sex_dv<-haven::as_factor(a_indrespt$a_sex_dv)
 
 #wave 13 a_indinus_xw
 m_indrespt<-m_indrespt%>%dplyr::select(m_indpxui_xw,m_strata,m_psu,m_mastat_dv,m_sex_dv,m_nchild_dv,m_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
@@ -642,60 +615,84 @@ m_indrespt$fasesXage<-haven::zap_labels(m_indrespt$fasesXage)
 m_indrespt$fases<-haven::zap_labels(m_indrespt$fases)
 m_indrespt$mases<-haven::zap_labels(m_indrespt$mases)
 
+#m_sex_dv,m_urban_dv,lvpab
 #as factor
 m_indrespt$m_mastat_dv<-haven::as_factor(m_indrespt$m_mastat_dv)
 m_indrespt$m_strata<-haven::as_factor(m_indrespt$m_strata)
 m_indrespt$m_psu<-haven::as_factor(m_indrespt$m_psu)
-m_indrespt$m_sex_dv<-haven::as_factor(m_indrespt$m_sex_dv)
 m_indrespt$m_nchild_dv<-haven::as_factor(m_indrespt$m_nchild_dv)
-m_indrespt$m_urban_dv<-haven::as_factor(m_indrespt$m_urban_dv)
 m_indrespt$lvpab<-haven::as_factor(m_indrespt$lvpab)
 m_indrespt$racel<-haven::as_factor(m_indrespt$racel)
 m_indrespt$ledes<-haven::as_factor(m_indrespt$ledes)
+m_indrespt$leave<-haven::as_factor(m_indrespt$leave)
 m_indrespt$mawork <-haven::as_factor(m_indrespt$mawork)
 m_indrespt$edu<-haven::as_factor(m_indrespt$edu)
 m_indrespt$age_group<-haven::as_factor(m_indrespt$age_group)
 m_indrespt$paedu <-haven::as_factor(m_indrespt$paedu )
 m_indrespt$maedu  <-haven::as_factor(m_indrespt$maedu )
+m_indrespt$m_urban_dv<-haven::as_factor(m_indrespt$m_urban_dv)
+m_indrespt$m_sex_dv<-haven::as_factor(m_indrespt$m_sex_dv)
 ```
 
 ```{r}
-#m_indrespimp<-sapply(m_indresptf, haven::zap_labels)
+#droplist: still using mice defaul
+ImputeData <- function(data, m = 5, maxit = 5,method=NULL, droplist = NULL) {
+  if (length(intersect(names(data), droplist)) < length(droplist)) {
+    stop("Droplist variables not found in data set")
+  }
+  predictorMatrix <- (1 - diag(1, ncol(data)))
+  for (term in droplist) {
+  drop.index <- which(names(data) == term)
+    predictorMatrix[, drop.index] <- 0
+  }
+  mids.out <- mice(data, m = m, maxit = maxit,method=method,
+                   predictorMatrix = predictorMatrix)
+  return(mids.out)
+}
 
-#factorial variables will considerably reduce the speed of imputation
-
-#Wave 1 Number of logged events: 396; Time difference of 1.090519 hours
-#Time difference of 5.846147 mins  Warning: Number of logged events: 250 
-varnames_a<-c("a_mastat_dv","a_sex_dv","a_nchild_dv","a_urban_dv","mases","lvpab","edu","age_group","lnincome","racel","fases","fasesXage","paedu","maedu","mawork","leave","ledes")
+#Time difference of 39.56778 mins，Number of logged events: 374
 start.time <- Sys.time() 
-
-imputations_a<-mice(a_indrespt,pred=quickpred(a_indrespt,include= 
-varnames_a,exclude= c("a_indinus_xw","a_strata","a_psu")))
-
+imp_m<-ImputeData(m_indrespt,m=1,maxit = 0,droplist = c("m_indpxui_xw","m_strata","m_psu","leave" ))
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-#Wave 13 Number of logged events: 314 Time difference of 1.090526 hours
-#Time difference of 5.846147 mins  Warning: Number of logged events: 250 
-varnames_m<-c("m_mastat_dv","m_sex_dv","m_nchild_dv","m_urban_dv","mases","lvpab","edu","age_group","lnincome","racel","fases","fasesXage","paedu","maedu","mawork","leave","ledes")
-
+#Time difference of 1.174014 hours；Number of logged events: 290
 start.time <- Sys.time() 
+imp_a<-ImputeData(a_indrespt,m=1,maxit = 0,droplist = c("a_indinus_xw","a_strata"  , "a_psu" ,"leave" ))
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
 
-imputations_b<-mice(m_indrespt,pred=quickpred(m_indrespt,include= 
-varnames_m,exclude= c("m_indpxui_xw","m_strata","m_psu")))
+#adjusting the methods
+impmethod_m<-imp_m$method
+impmethod_m["m_sex_dv"]<-"logreg"
+impmethod_m["m_urban_dv"]<-"logreg"
+impmethod_m["lvpab"]<-"logreg"
 
+impmethod_a<-imp_a$method
+impmethod_a["a_sex_dv"]<-"logreg"
+impmethod_a["a_urban_dv"]<-"logreg"
+impmethod_a["lvpab"]<-"logreg"
+
+#Time difference of  35.07069 mins,Number of logged events: 373
+start.time <- Sys.time() 
+imp_m<-ImputeData(m_indrespt,m=5,maxit = 5,droplist = c("m_indpxui_xw","m_strata","m_psu","leave" ),method=impmethod_m)
+end.time <- Sys.time() 
+time.taken <- end.time - start.time 
+time.taken
+
+
+#Time difference of 1.121355 hours；Number of logged events: 291
+start.time <- Sys.time() 
+imp_a<-ImputeData(a_indrespt,m=5,maxit = 5,droplist = c("a_indinus_xw","a_strata"  , "a_psu" ,"leave" ),method=impmethod_a)
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 ```
 
-```         
-start.time <- Sys.time() ...Relevent codes... end.time <- Sys.time() time.taken <- end.time - start.time time.taken
-```
-
-### Wave 1 females 
+### Wave 1 females
 
 ```{r}
 #with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
@@ -787,7 +784,7 @@ lm_svy_af_2 <- function(formula, imputations) {
 #m1 Time difference of 5.143367 mins
 start.time <- Sys.time() 
 
-m1af_imp<-lm_svy_af(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m1af_imp<-lm_svy_af(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -796,7 +793,7 @@ time.taken
 #m2 Time difference of 18.08427 mins
 start.time <- Sys.time() 
 
-m2af_imp<-lm_svy_af_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m2af_imp<-lm_svy_af_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -806,7 +803,7 @@ time.taken
 #m3 Time difference of 10.00591 mins
 start.time <- Sys.time() 
 
-m3af_imp<-lm_svy_af_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m3af_imp<-lm_svy_af_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -814,7 +811,7 @@ time.taken
 
 ```
 
-### Wave 1 males 
+### Wave 1 males
 
 ```{r}
 #with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
@@ -902,7 +899,7 @@ lm_svy_am_2 <- function(formula, imputations) {
 #m1 Time difference of 5.283394 mins
 start.time <- Sys.time() 
 
-m1am_imp<-lm_svy_am(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m1am_imp<-lm_svy_am(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -911,7 +908,7 @@ time.taken
 #m2 Time difference of 17.32093 mins
 start.time <- Sys.time() 
 
-m2am_imp<-lm_svy_am_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m2am_imp<-lm_svy_am_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -921,7 +918,7 @@ time.taken
 #m3 Time difference of 10.53404 mins
 start.time <- Sys.time() 
 
-m3am_imp<-lm_svy_am_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imputations_a)
+m3am_imp<-lm_svy_am_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1021,7 +1018,7 @@ lm_svy_mf_2 <- function(formula, imputations) {
 #m1 Time difference of 2.939297 mins
 start.time <- Sys.time() 
 
-m1bf_imp<-lm_svy_mf(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m1bf_imp<-lm_svy_mf(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1030,7 +1027,7 @@ time.taken
 #m2 Time difference of 8.87294 mins
 start.time <- Sys.time() 
 
-m2bf_imp<-lm_svy_mf_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m2bf_imp<-lm_svy_mf_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1040,7 +1037,7 @@ time.taken
 #m3 Time difference of 4.866161 mins
 start.time <- Sys.time() 
 
-m3bf_imp<-lm_svy_mf_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m3bf_imp<-lm_svy_mf_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1141,7 +1138,7 @@ lm_svy_mm_2 <- function(formula, imputations) {
 #m1 Time difference of 3.179687 mins
 start.time <- Sys.time() 
 
-m1bm_imp<-lm_svy_mm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m1bm_imp<-lm_svy_mm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1151,7 +1148,7 @@ time.taken
 #m2 Time difference of 8.01764 mins
 start.time <- Sys.time() 
 
-m2bm_imp<-lm_svy_mm_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m2bm_imp<-lm_svy_mm_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1161,18 +1158,13 @@ time.taken
 #m3 Time difference of 4.359161 mins
 start.time <- Sys.time() 
 
-m3bm_imp<-lm_svy_mm_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imputations)
+m3bm_imp<-lm_svy_mm_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-```
-
-```{r}
-fitm1b <- with(imputations, glm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,family=binomial(link="logit")))
-summary(pool(fitm1b))
 ```
 
 ## Plotting results
@@ -1186,26 +1178,28 @@ convertModel <- function(model) {
     pvalues = model$coef$pvalue.pool,
   )
 }
+
+#omit<-c("(Intercept):1", "(Intercept):2", "age_group21-25:1","age_group21-25:2","age_group26-30:1","age_group26-30:2" ,"age_group31-35:1","age_group31-35:2","factor(edu)middle:1", "factor(edu)middle:2", "factor(edu)high:1", "factor(edu)high:2", "factor(racel)African Caribbean:1",   "factor(racel)African Caribbean:2" , "factor(racel)Indiani,Pakistani, Bangladeshi:1", "factor(racel)Indiani,Pakistani, Bangladeshi:2" ,   "factor(racel)Other Asian:1",     "factor(racel)Other Asian:2","factor(racel)Other:1", "factor(racel)Other:2", "m_urban_dvrural area:1", "m_urban_dvrural area:2" )
+        
 #compare males and females in wave 1
  af_m1<-screenreg(lapply(list(m1af_imp, m1am_imp), convertModel))
  af_m2<-screenreg(lapply(list(m2af_imp, m2am_imp), convertModel))
- af_m3<-screenreg(lapply(list(m3af_imp, m3am_imp), convertModel),file="compare males and females in wave 1.doc",model.names = c("Wave 1", "Wave 13"),omit.coef =c("(Intercept):1", "(Intercept):2", "age_group21-25:1","age_group21-25:2","age_group26-30:1","age_group26-30:2" ,"age_group31-35:1","age_group31-35:2","factor(edu)middle:1", "factor(edu)middle:2", "factor(edu)high:1", "factor(edu)high:2", "factor(racel)African Caribbean:1",   "factor(racel)African Caribbean:2" , "factor(racel)Indiani,Pakistani, Bangladeshi:1", "factor(racel)Indiani,Pakistani, Bangladeshi:2" ,   "factor(racel)Other Asian:1",     "factor(racel)Other Asian:2",
-"factor(racel)Other:1", "factor(racel)Other:2", "m_urban_dvrural area:1", "m_urban_dvrural area:2" ))
+ af_m3<-htmlreg(lapply(list(m3af_imp, m3am_imp), convertModel),file="compare males and females in wave 1(2).html",custom.model.names = c("Females", "Males"))
 
 #compare males and females in wave 13
  mf_m1<-screenreg(lapply(list(m1bf_imp, m1bm_imp), convertModel))
  mf_m2<-screenreg(lapply(list(m2bf_imp, m2bm_imp), convertModel))
- mf_m3<-screenreg(lapply(list(m3bf_imp, m3bm_imp), convertModel))
+ mf_m3<-htmlreg(lapply(list(m3bf_imp, m3bm_imp), convertModel),file="compare males and females in wave 13(2).html",custom.model.names = c("Females", "Males"))
  
 #compare females in wave 13 and wave 1
  bf_m1<-screenreg(lapply(list(m1af_imp, m1bf_imp), convertModel))
  bf_m2<-screenreg(lapply(list(m2af_imp, m2bf_imp), convertModel))
- bf_m3<-screenreg(lapply(list(m3af_imp, m3bf_imp), convertModel))
+ bf_m3<-htmlreg(lapply(list(m3af_imp, m3bf_imp), convertModel),file="compare females in wave 13 and wave 1(2).html",custom.model.names = c("Wave 1", "Wave 13"))
  
  #compare males in wave 13 and wave 1
  bm_m1<-screenreg(lapply(list(m1am_imp, m1bm_imp), convertModel))
  bm_m2<-screenreg(lapply(list(m2am_imp, m2bm_imp), convertModel))
- bm_m3<-screenreg(lapply(list(m3am_imp, m3bm_imp), convertModel))
+ bm_m3<-htmlreg(lapply(list(m3am_imp, m3bm_imp), convertModel),file="compare males in wave 13 and wave 1(2).html",custom.model.names = c("Wave 1", "Wave 13"))
         
 ```
 
@@ -1236,7 +1230,42 @@ pbox(a_indrespy, pos = 17)
 pbox(m_indresp, pos = 17)
 ```
 
+### Models
+
+```{r}
+
+```
+
 # Model building without imputations
+
+## Adopt the Weightings
+
+```{r}
+options(survey.lonely.psu="adjust")
+
+svy_indresp1 <- svydesign(id=~a_psu, strata=~a_strata, 
+                         weights=~a_indinus_xw, data=a_indresp)
+
+svy_indresp2 <- svydesign(id=~m_psu, strata=~m_strata,weights=~m_indpxui_xw, data=m_indresp)
+
+#subset the data for respondents aged 25-50
+svy_indresp1y<-subset(svy_indresp1, a_age_dv%in%c(16:35))
+
+svy_indresp2y<-subset(svy_indresp2, m_age_dv%in%c(16:35))
+
+
+#for males and females
+#females
+svy_indresp1yf<-subset(svy_indresp1y, a_sex_dv%in%c(2))
+svy_indresp2yf<-subset(svy_indresp2y, m_sex_dv%in%c(2))
+
+
+#males
+svy_indresp1ym<-subset(svy_indresp1y, a_sex_dv%in%c(1))
+svy_indresp2ym<-subset(svy_indresp2y, m_sex_dv%in%c(1))
+
+
+```
 
 ## Model 1
 
