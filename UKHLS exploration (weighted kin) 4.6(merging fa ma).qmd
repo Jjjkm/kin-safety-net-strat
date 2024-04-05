@@ -1,6 +1,6 @@
 ---
-title: "UKHLS exploration (weighted kin) 4.6 (2)"
-format: html
+title: "UKHLS weighted kin 4.6"
+format: pdf
 editor: visual
 ---
 
@@ -1207,7 +1207,7 @@ convertModel <- function(model) {
 
 ### imputation
 
- <https://stats.oarc.ucla.edu/r/faq/how-do-i-perform-multiple-imputation-using-predictive-mean-matching-in-r/>
+<https://stats.oarc.ucla.edu/r/faq/how-do-i-perform-multiple-imputation-using-predictive-mean-matching-in-r/> 
 
 ```{r}
 a_indrespy<-a_indresp[which(a_indresp$a_age_dv%in%c(16:35)),]
@@ -1215,7 +1215,7 @@ m_indrespy<-m_indresp[which(m_indresp$m_age_dv%in%c(16:35)),]
 ```
 
 ```{r}
-marginplot(a_indrespy[c(17, 20)], col = c("blue", "red", "orange"))
+marginplot(m_indrespt[c(5, 16)], col = c("blue", "red", "orange"))
 ```
 
 The box plots are blue for observed values and red for missing values
@@ -1223,7 +1223,9 @@ The box plots are blue for observed values and red for missing values
 Evidence supporting MAR over MCAR would be if the distribution of **x2** for those observations with missing information for **y1** or **y4** were much higher or much lower than those of the non-missing observations. In the above graph, the boxplots appear to mostly overlap once again providing support for the assumption of MCAR.
 
 ```{r}
-pbox(a_indrespy, pos = 17)
+pbox(a_indrespt, pos = 11)
+
+
 ```
 
 ```{r}
@@ -1491,4 +1493,8 @@ test2<-complete.cases(testb)
 table(test2)
 
 #comple cases of males and females in wave 1 and 13: 434, 3927
+```
+
+```{r}
+
 ```
