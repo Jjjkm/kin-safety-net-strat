@@ -6,7 +6,7 @@ editor: visual
 
 ## Reading and cleaning data
 
-```{r}
+```{r echo = T, results = 'hide'}
 #houskeeping
 #Clear objects already in the environment – start with a clean slate
 rm(list=ls())
@@ -61,7 +61,7 @@ a_indresp <- read_dta(file=paste0(inpath, "ukhls/a_indresp.dta")) %>%
  dplyr::select(pidp, a_mastat_dv, a_strata, a_psu,
          a_indinus_xw,
          a_age_dv, a_sex_dv, a_hiqual_dv,
-         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_urban_dv,a_panssec8_dv,a_manssec8_dv)
+         a_mastat_dv, a_racel_dv,a_fimnnet_dv,a_lvrel1,a_lvrel2,a_pns1pno,a_pns2pno,a_nchild_dv,a_urban_dv,a_panssec8_dv,a_manssec8_dv,a_gor_dv,a_jbhas,a_jboff,a_school,a_paage,a_maage,a_sf1)
 
 
 a_indrespj<-a_indresp%>%dplyr::select(pidp,a_panssec8_dv,a_manssec8_dv)
@@ -133,9 +133,9 @@ l_indresp <- read_dta(file=paste0(inpath, "ukhls/l_indresp.dta")) %>%
 #wave 13
 m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta")) %>%
  dplyr::select(pidp, m_mastat_dv, m_strata, m_psu, 
-         m_indpxui_xw,
+          m_indscui_xw,
          m_age_dv, m_sex_dv, m_hiqual_dv, 
-         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,m_panssec8_dv,m_manssec8_dv)
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,m_panssec8_dv,m_manssec8_dv,m_gor_dv,m_jbhas,m_jboff,m_school,m_alljbstat7,m_paage,m_maage,m_sf1,m_scsf1)
 
 ```
 
@@ -220,6 +220,8 @@ rm(missval,a_indrespj,b_indresp,c_indresp,d_indresp,e_indresp,f_indresp,g_indres
 
 ### Wave 1
 
+a_gor_dv,a_jbhas,a_jboff,a_school,a_paage,a_maage,a_sf1
+
 ```{r}
 a_indresp$a_sex_dv[a_indresp$a_sex_dv==0]<-NA
 a_indresp$a_fimnnet_dv[a_indresp$a_fimnnet_dv<0]<-NA
@@ -234,6 +236,11 @@ a_indresp$lvpaf<-c(0)
 a_indresp$lvpaf[a_indresp$a_pns2pno!=0]<-1
 a_indresp$parentnum<-a_indresp$a_lvrel1+a_indresp$a_lvrel2+a_indresp$lvpam+a_indresp$lvpaf
 
+#num of parents (censored)
+a_indresp$parents<-c(0)
+a_indresp$parents[a_indresp$parentnum==1]<-1
+a_indresp$parents[a_indresp$parentnum>1]<-2
+a_indresp$parents[is.na(a_indresp$parentnum)]<-NA
 
 #living with parents or not (biological/step/adoptive)
 a_indresp$lvpa<-a_indresp$lvpam+a_indresp$lvpaf
@@ -267,12 +274,16 @@ a_indresp$age_group[a_indresp$a_age_dv%in%c(31:35)]<-4
 
 a_indresp$age_group<-factor(a_indresp$age_group,levels=c(1,2,3,4),labels=c("16-20","21-25","26-30","31-35"))
 
+#age squared
+a_indresp$age_sq<-a_indresp$a_age_dv**2
+
 #logarithm of income
 a_indresp$lnincome<-log(a_indresp$a_fimnnet_dv)
 #add 1 to all income values to avoid -inf in log transformation
 a_indresp$incomeadd<-a_indresp$a_fimnnet_dv+1
 a_indresp$lnincome<-log(a_indresp$incomeadd)
 a_indresp<-a_indresp%>%dplyr::select(-incomeadd)
+
 
 #racel groups 
 a_indresp$racel<-c(0)
@@ -283,6 +294,49 @@ a_indresp$racel[a_indresp$a_racel_dv%in%c(12,13)]<-4 #Other Asian
 a_indresp$racel[a_indresp$racel==0]<-5 #Other
 
 a_indresp$racel<-factor(a_indresp$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
+
+a_indresp$racel[is.na(a_indresp$a_racel_dv)]<-NA
+
+
+#education status
+a_indresp$student<-c(0)
+a_indresp$student[a_indresp$a_school%in%c(3)]<-1 #student
+a_indresp$student[is.na(a_indresp$a_school)]<-NA
+
+#employment status
+a_indresp$unemployed<-c(0)
+a_indresp$unemployed[a_indresp$a_jboff%in%c(2,3)]<-1
+#weren't working & did not have a job that you were away from last week
+a_indresp$unemployed[is.na(a_indresp$a_jbhas)]<-NA
+a_indresp$unemployed[a_indresp$a_jbhas!=1 & is.na(a_indresp$a_jboff)]<-NA
+
+#housing prices
+a_indresp$houseprices<-c(0)
+a_indresp$houseprices[a_indresp$a_gor_dv%in%c(1,10,11,12)]<-1 #low
+a_indresp$houseprices[a_indresp$a_gor_dv%in%c(2,3,4,5)]<-2 #middle
+a_indresp$houseprices[a_indresp$a_gor_dv%in%c(6,7,8,9)]<-3 #high
+a_indresp$houseprices[is.na(a_indresp$a_gor_dv)]<-NA
+
+a_indresp$houseprices<-factor(a_indresp$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+
+#general health
+a_indresp$health<-a_indresp$a_sf1
+
+#urban,sex binary
+a_indresp$sex<-c(0)
+a_indresp$sex[a_indresp$a_sex_dv==2]<-1 #females
+a_indresp$sex[is.na(a_indresp$a_sex_dv)]<-NA
+
+a_indresp$urban<-c(0)
+a_indresp$urban[a_indresp$a_urban_dv==1]<-1 #urban areas
+a_indresp$urban[is.na(a_indresp$a_urban_dv)]<-NA
+
+#parental age (the younger if two parents are present)
+#if only one parental age is available, the figure available is presented
+a_indresp <- transform(a_indresp, parentage = pmin(a_maage, a_paage))
+a_indresp$parentage<-ifelse(is.na(a_indresp$parentage), a_indresp$a_maage, a_indresp$parentage)
+a_indresp$parentage<-ifelse(is.na(a_indresp$parentage), a_indresp$a_paage, a_indresp$parentage)
+      
 ```
 
 ```{r}
@@ -295,11 +349,12 @@ a_indresp$fases[a_indresp$pases==5]<-4 #Small employers & own account
 a_indresp$fases[a_indresp$pases==4]<-5 #Intermediate 
 a_indresp$fases[a_indresp$pases==3]<-6 #Lower management & professional
 a_indresp$fases[a_indresp$pases==2]<-7 #Higher professional
-a_indresp$fases[a_indresp$pases==1]<-8 #Large employers & higher management 
+a_indresp$fases[a_indresp$pases==1]<-8 #Large employers & higher management
+
 
 #dummy variable for pases missing
 #a_indresp$fasesna<-ifelse(a_indresp$fases==0, 1, 0)
-a_indresp$fases[a_indresp$pases==0]<-NA
+a_indresp$fases[is.na(a_indresp$pases)]<-NA
 
 a_indresp$fasesXage<-a_indresp$fases*a_indresp$a_age_dv
 
@@ -337,6 +392,7 @@ a_indresp$mawork<-factor(a_indresp$mawork,levels=c(1,2,3),labels=c("notworking",
 #preparing dependent variables for multinomial regression (wave 1)
 ##patterns of home-leaving
 ###living with parents(including those who have children)========================
+a_indresp$leave<-c(0)
 a_indresp$leave[a_indresp$lvpa!=0]<-1
 ##route out 1: to live with a partner ==============================
 a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
@@ -347,6 +403,10 @@ a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
 a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
                          a_indresp$a_mastat_dv%in%c(0,1,4,5,6,7,8,9,10)  
                          ]<-3 
+##ma_stat==NA
+a_indresp$leave[a_indresp$lvpa==0 & #not living with parents
+                         is.na(a_indresp$a_mastat_dv)  
+                         ]<-NA
 ```
 
 ```{r}
@@ -371,6 +431,10 @@ a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
 a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
                          a_indresp$a_mastat_dv%in%c(0,1,4,5,6,7,8,9)  #others
                          ]<-4 
+##mastat_dv==NA
+a_indresp$ledes[a_indresp$lvpa==0 & #not living with parents
+                        is.na( a_indresp$a_mastat_dv )#others
+                         ]<-NA
 
 
 
@@ -383,15 +447,21 @@ attr(a_indresp$ledes,"labels")<-c(
 
 
 a_indresp$ledes<-factor(a_indresp$ledes,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
+
+
+```
+
+```{r}
+colSums(is.na(a_indresp))
 ```
 
 ### Wave 13
 
 ```{r}
 m_indresp<-m_indresp%>%dplyr::select(pidp, m_mastat_dv, m_strata, m_psu, 
-         m_indpxui_xw,
+         m_indscui_xw,
          m_age_dv, m_sex_dv, m_hiqual_dv, 
-         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,maju,paju,maedqf,paedqf,mases,pases)
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_lvrel1,m_lvrel2,m_lvrel9,m_lvrel10,m_pns1pno,m_pns2pno,m_nchild_dv,m_urban_dv,pases,mases,m_gor_dv,m_jbhas,m_jboff,m_school,m_alljbstat7,m_paage,m_maage,m_sf1,m_scsf1,maedqf,paedqf,maju,paju)
 ```
 
 ```{r}
@@ -400,14 +470,19 @@ m_indresp$m_fimnnet_dv[m_indresp$m_fimnnet_dv<0]<-NA
 ```
 
 ```{r}
-#preparing variables for analysis (wave 13)
+#preparing variables for analysis (wave 1)
 #num of parents
 m_indresp$lvpam<-c(0)
 m_indresp$lvpam[m_indresp$m_pns1pno!=0]<-1
 m_indresp$lvpaf<-c(0)
 m_indresp$lvpaf[m_indresp$m_pns2pno!=0]<-1
-m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$lvpam+m_indresp$lvpaf
+m_indresp$parentnum<-m_indresp$m_lvrel1+m_indresp$m_lvrel2+m_indresp$m_lvrel9+m_indresp$m_lvrel10+m_indresp$lvpam+m_indresp$lvpaf
 
+#num of parents (censored)
+m_indresp$parents<-c(0)
+m_indresp$parents[m_indresp$parentnum==1]<-1
+m_indresp$parents[m_indresp$parentnum>1]<-2
+m_indresp$parents[is.na(m_indresp$parentnum)]<-NA
 
 #living with parents or not (biological/step/adoptive)
 m_indresp$lvpa<-m_indresp$lvpam+m_indresp$lvpaf
@@ -441,12 +516,16 @@ m_indresp$age_group[m_indresp$m_age_dv%in%c(31:35)]<-4
 
 m_indresp$age_group<-factor(m_indresp$age_group,levels=c(1,2,3,4),labels=c("16-20","21-25","26-30","31-35"))
 
+#age_squared
+m_indresp$age_sq<-m_indresp$m_age_dv**2
+
 #logarithm of income
 m_indresp$lnincome<-log(m_indresp$m_fimnnet_dv)
 #add 1 to all income values to avoid -inf in log transformation
 m_indresp$incomeadd<-m_indresp$m_fimnnet_dv+1
 m_indresp$lnincome<-log(m_indresp$incomeadd)
 m_indresp<-m_indresp%>%dplyr::select(-incomeadd)
+
 
 #racel groups 
 m_indresp$racel<-c(0)
@@ -458,7 +537,48 @@ m_indresp$racel[m_indresp$racel==0]<-5 #Other
 
 m_indresp$racel<-factor(m_indresp$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
 
-#
+m_indresp$racel[is.na(m_indresp$m_racel_dv)]<-NA
+
+
+#education status**
+m_indresp$student<-c(0)
+m_indresp$student[m_indresp$m_alljbstat7%in%c(1)]<-1 #student
+m_indresp$student[is.na(m_indresp$m_alljbstat7)]<-NA
+
+#employment status
+m_indresp$unemployed<-c(0)
+m_indresp$unemployed[m_indresp$m_jboff%in%c(2,3)]<-1
+#weren't working & did not have a job that you were away from last week
+m_indresp$unemployed[is.na(m_indresp$m_jbhas)]<-NA
+m_indresp$unemployed[m_indresp$m_jbhas!=1 & is.na(m_indresp$m_jboff)]<-NA
+
+#housing prices
+m_indresp$houseprices<-c(0)
+m_indresp$houseprices[m_indresp$m_gor_dv%in%c(1,10,11,12)]<-1 #low
+m_indresp$houseprices[m_indresp$m_gor_dv%in%c(2,3,4,5)]<-2 #middle
+m_indresp$houseprices[m_indresp$m_gor_dv%in%c(6,7,8,9)]<-3 #high
+m_indresp$houseprices[is.na(m_indresp$m_gor_dv)]<-NA
+
+m_indresp$houseprices<-factor(m_indresp$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+
+#general health**
+m_indresp<-m_indresp%>%mutate(health=coalesce(m_sf1,m_scsf1))
+
+#urban,sex binary
+m_indresp$sex<-c(0)
+m_indresp$sex[m_indresp$m_sex_dv==2]<-1 #females
+m_indresp$sex[is.na(m_indresp$m_sex_dv)]<-NA
+
+m_indresp$urban<-c(0)
+m_indresp$urban[m_indresp$m_urban_dv==1]<-1 #urban areas
+m_indresp$urban[is.na(m_indresp$m_urban_dv)]<-NA
+
+#parental age (the younger if two parents are present)
+#if only one parental age is available, the figure available is presented
+m_indresp <- transform(m_indresp, parentage = pmin(m_maage, m_paage))
+m_indresp$parentage<-ifelse(is.na(m_indresp$parentage), m_indresp$m_maage, m_indresp$parentage)
+m_indresp$parentage<-ifelse(is.na(m_indresp$parentage), m_indresp$m_paage, m_indresp$parentage)
+
 ```
 
 ```{r}
@@ -471,11 +591,12 @@ m_indresp$fases[m_indresp$pases==5]<-4 #Small employers & own account
 m_indresp$fases[m_indresp$pases==4]<-5 #Intermediate 
 m_indresp$fases[m_indresp$pases==3]<-6 #Lower management & professional
 m_indresp$fases[m_indresp$pases==2]<-7 #Higher professional
-m_indresp$fases[m_indresp$pases==1]<-8 #Large employers & higher management 
+m_indresp$fases[m_indresp$pases==1]<-8 #Large employers & higher management
+
 
 #dummy variable for pases missing
-#m_indresp$fasesna<-ifelse(m_indresp$fases==0, 1, 0)
-m_indresp$fases[m_indresp$pases==0]<-NA
+#a_indresp$fasesna<-ifelse(a_indresp$fases==0, 1, 0)
+m_indresp$fases[is.na(m_indresp$pases)]<-NA
 
 m_indresp$fasesXage<-m_indresp$fases*m_indresp$m_age_dv
 
@@ -506,13 +627,13 @@ m_indresp$mawork[m_indresp$maju%in%c(3,4)]<-3 #Mother deceased/Mother not living
 m_indresp$mawork[m_indresp$mawork==0]<-NA #missing
 
 m_indresp$mawork<-factor(m_indresp$mawork,levels=c(1,2,3),labels=c("notworking","working","Mother deceased/not living with respondent"))
-
 ```
 
 ```{r}
-#preparing dependent variables for multinomial regression (wave 1)
+#preparing dependent variables for multinomial regression (wave 13)
 ##patterns of home-leaving
 ###living with parents(including those who have children)========================
+m_indresp$leave<-c(0)
 m_indresp$leave[m_indresp$lvpa!=0]<-1
 ##route out 1: to live with a partner ==============================
 m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
@@ -523,11 +644,15 @@ m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
 m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
                          m_indresp$m_mastat_dv%in%c(0,1,4,5,6,7,8,9,10)  
                          ]<-3 
+##ma_stat==NA
+m_indresp$leave[m_indresp$lvpa==0 & #not living with parents
+                         is.na(m_indresp$m_mastat_dv)  
+                         ]<-NA
 ```
 
 ```{r}
 #preparing dependent variables for multinomial regression (wave 13) 
-##patterns of home-leaving 
+##patterns of home-leaving (distinguish between marriage and cohabitation) 
 m_indresp$ledes<-c(0)
 
 ###living with parents(including those who have children)========================
@@ -535,7 +660,7 @@ m_indresp$ledes[m_indresp$lvpa!=0]<-1
 
 ##route out 1: to live with a partner(marriage) ==============================
 m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
-                         m_indresp$m_mastat_dv%in%c(2,3)  #married
+                         m_indresp$m_mastat_dv%in%c(2,3)  #married 
                          ]<-2 
 
 ##route out 2: to live with a partner(cohabitation) ==============================
@@ -544,14 +669,18 @@ m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
                          ]<-3 
 
 ##route out 3: to live without a partner=====================
-###females
 m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
                          m_indresp$m_mastat_dv%in%c(0,1,4,5,6,7,8,9)  #others
                          ]<-4 
+##mastat_dv==NA
+m_indresp$ledes[m_indresp$lvpa==0 & #not living with parents
+                        is.na( m_indresp$m_mastat_dv )#others
+                         ]<-NA
+
 
 
 attr(m_indresp$ledes,"labels")<-c(
-"NA:n=80,having missing values in marital status;", 
+"NA:n=13,having missing values in marital status;", 
 "1:living with parents;",
 "2:route out 1:leaving with partner (marriage) ;",
 "3:route out 2:leaving with partner (cohabitation);",
@@ -559,6 +688,10 @@ attr(m_indresp$ledes,"labels")<-c(
 
 
 m_indresp$ledes<-factor(m_indresp$ledes,levels=c(1,2,3,4),labels=c("living with parents","leaving with partner (marriage)","leaving with partner (cohabitation)","leaving without a partner"))
+```
+
+```{r}
+colSums(is.na(m_indresp))
 ```
 
 ## Model building with imputations
@@ -578,64 +711,81 @@ m_indresptf<-m_indrespty[which(m_indrespty$m_sex_dv%in%c(2)),]
 ```{r}
 #not ordered: mastat_dv,sex_dv,urban_dv,lvpab,racel,ledes,leave,mawork
 #wave 1
-a_indrespt<-a_indrespt%>%dplyr::select(a_indinus_xw,a_strata,a_psu,a_mastat_dv,a_sex_dv,a_nchild_dv,a_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
+a_indrespt<-a_indrespt%>%dplyr::select(a_mastat_dv,a_strata, a_psu, a_indinus_xw,
+ a_age_dv, parents,lvpab, edu, child, age_sq,lnincome, racel,student,unemployed,houseprices,health,fases,fasesXage,paedu,maedu, mawork,leave,ledes,sex,urban,parentage)
 
+#26
 #as numeric
 a_indrespt$a_indinus_xw<-haven::zap_labels(a_indrespt$a_indinus_xw)
+a_indrespt$a_age_dv<-haven::zap_labels(a_indrespt$a_age_dv)
+a_indrespt$parents <-haven::zap_labels(a_indrespt$parents )
+a_indrespt$age_sq<-haven::zap_labels(a_indrespt$age_sq)
 a_indrespt$lnincome<-haven::zap_labels(a_indrespt$lnincome)
-a_indrespt$fasesXage<-haven::zap_labels(a_indrespt$fasesXage)
+a_indrespt$health<-haven::zap_labels(a_indrespt$health)
 a_indrespt$fases<-haven::zap_labels(a_indrespt$fases)
-a_indrespt$mases<-haven::zap_labels(a_indrespt$mases)
-
+a_indrespt$fasesXage<-haven::zap_labels(a_indrespt$fasesXage)
+a_indrespt$parentage<-haven::zap_labels(a_indrespt$parentage)
 
 #as factor
+a_indrespt$child<-haven::as_factor(a_indrespt$child)
+a_indrespt$student<-haven::as_factor(a_indrespt$student)
+a_indrespt$unemployed<-haven::as_factor(a_indrespt$unemployed)
+a_indrespt$sex<-haven::as_factor(a_indrespt$sex)
+a_indrespt$urban<-haven::as_factor(a_indrespt$urban) 
+a_indrespt$lvpab<-haven::as_factor(a_indrespt$lvpab)
+
 a_indrespt$a_mastat_dv<-haven::as_factor(a_indrespt$a_mastat_dv)
 a_indrespt$a_strata<-haven::as_factor(a_indrespt$a_strata)
-a_indrespt$a_psu<-haven::as_factor(a_indrespt$a_psu)
-a_indrespt$a_nchild_dv<-haven::as_factor(a_indrespt$a_nchild_dv)
-a_indrespt$lvpab<-haven::as_factor(a_indrespt$lvpab)
-a_indrespt$racel<-haven::as_factor(a_indrespt$racel)
-a_indrespt$ledes<-haven::as_factor(a_indrespt$ledes)
-a_indrespt$leave<-haven::as_factor(a_indrespt$leave)
-a_indrespt$mawork <-haven::as_factor(a_indrespt$mawork)
+a_indrespt$a_psu <-haven::as_factor(a_indrespt$a_psu)
 a_indrespt$edu<-haven::as_factor(a_indrespt$edu)
-a_indrespt$age_group<-haven::as_factor(a_indrespt$age_group)
-a_indrespt$paedu <-haven::as_factor(a_indrespt$paedu )
-a_indrespt$maedu  <-haven::as_factor(a_indrespt$maedu )
-a_indrespt$a_urban_dv<-haven::as_factor(a_indrespt$a_urban_dv)
-a_indrespt$a_sex_dv<-haven::as_factor(a_indrespt$a_sex_dv)
+a_indrespt$racel<-haven::as_factor(a_indrespt$racel) 
+a_indrespt$houseprices <-haven::as_factor(a_indrespt$houseprices )
+a_indrespt$paedu   <-haven::as_factor(a_indrespt$paedu  )
+a_indrespt$maedu<-haven::as_factor(a_indrespt$maedu)
+a_indrespt$leave<-haven::as_factor(a_indrespt$leave)
+a_indrespt$mawork<-haven::as_factor(a_indrespt$mawork)
+a_indrespt$ledes<-haven::as_factor(a_indrespt$ledes)
 
-#wave 13 a_indinus_xw
-m_indrespt<-m_indrespt%>%dplyr::select(m_indpxui_xw,m_strata,m_psu,m_mastat_dv,m_sex_dv,m_nchild_dv,m_urban_dv,mases,lvpab,edu,age_group,lnincome,racel,fases,fasesXage,paedu,maedu,mawork,leave,ledes)
+#wave 13 
+m_indrespt<-m_indrespt%>%dplyr::select(m_mastat_dv,m_strata, m_psu, m_indscui_xw,
+ m_age_dv, parents,lvpab, edu, child, age_sq,lnincome, racel,student,unemployed,houseprices,health,fases,fasesXage,paedu,maedu, mawork,leave,ledes,sex,urban,parentage)
+
 
 #as numeric
-m_indrespt$m_indpxui_xw<-haven::zap_labels(m_indrespt$m_indpxui_xw)
+m_indrespt$m_indscui_xw<-haven::zap_labels(m_indrespt$m_indscui_xw)
+m_indrespt$m_age_dv<-haven::zap_labels(m_indrespt$m_age_dv)
+m_indrespt$parents <-haven::zap_labels(m_indrespt$parents )
+m_indrespt$age_sq<-haven::zap_labels(m_indrespt$age_sq)
 m_indrespt$lnincome<-haven::zap_labels(m_indrespt$lnincome)
-m_indrespt$fasesXage<-haven::zap_labels(m_indrespt$fasesXage)
+m_indrespt$health<-haven::zap_labels(m_indrespt$health)
 m_indrespt$fases<-haven::zap_labels(m_indrespt$fases)
-m_indrespt$mases<-haven::zap_labels(m_indrespt$mases)
+m_indrespt$fasesXage<-haven::zap_labels(m_indrespt$fasesXage)
+m_indrespt$parentage<-haven::zap_labels(m_indrespt$parentage)
 
-#m_sex_dv,m_urban_dv,lvpab
 #as factor
+m_indrespt$child<-haven::as_factor(m_indrespt$child)
+m_indrespt$student<-haven::as_factor(m_indrespt$student)
+m_indrespt$unemployed<-haven::as_factor(m_indrespt$unemployed)
+m_indrespt$sex<-haven::as_factor(m_indrespt$sex)
+m_indrespt$urban<-haven::as_factor(m_indrespt$urban) 
+m_indrespt$lvpab<-haven::as_factor(m_indrespt$lvpab)
+
 m_indrespt$m_mastat_dv<-haven::as_factor(m_indrespt$m_mastat_dv)
 m_indrespt$m_strata<-haven::as_factor(m_indrespt$m_strata)
-m_indrespt$m_psu<-haven::as_factor(m_indrespt$m_psu)
-m_indrespt$m_nchild_dv<-haven::as_factor(m_indrespt$m_nchild_dv)
-m_indrespt$lvpab<-haven::as_factor(m_indrespt$lvpab)
-m_indrespt$racel<-haven::as_factor(m_indrespt$racel)
-m_indrespt$ledes<-haven::as_factor(m_indrespt$ledes)
-m_indrespt$leave<-haven::as_factor(m_indrespt$leave)
-m_indrespt$mawork <-haven::as_factor(m_indrespt$mawork)
+m_indrespt$m_psu <-haven::as_factor(m_indrespt$m_psu)
 m_indrespt$edu<-haven::as_factor(m_indrespt$edu)
-m_indrespt$age_group<-haven::as_factor(m_indrespt$age_group)
-m_indrespt$paedu <-haven::as_factor(m_indrespt$paedu )
-m_indrespt$maedu  <-haven::as_factor(m_indrespt$maedu )
-m_indrespt$m_urban_dv<-haven::as_factor(m_indrespt$m_urban_dv)
-m_indrespt$m_sex_dv<-haven::as_factor(m_indrespt$m_sex_dv)
+m_indrespt$racel<-haven::as_factor(m_indrespt$racel) 
+m_indrespt$houseprices <-haven::as_factor(m_indrespt$houseprices )
+m_indrespt$paedu   <-haven::as_factor(m_indrespt$paedu  )
+m_indrespt$maedu<-haven::as_factor(m_indrespt$maedu)
+m_indrespt$leave<-haven::as_factor(m_indrespt$leave)
+m_indrespt$mawork<-haven::as_factor(m_indrespt$mawork)
+m_indrespt$ledes<-haven::as_factor(m_indrespt$ledes)
 ```
 
 ```{r}
-#droplist: still using mice defaul
+#droplist: droplist, where you can pass a character vector of predictor variables that you do not want used in the right-hand-side of the imputation formulas. This was for speed, as I found that factor variables with many levels would slow down the imputation considerably.
+#https://stats.stackexchange.com/questions/209811/how-to-improve-running-time-for-r-mice-data-imputation
 ImputeData <- function(data, m = 5, maxit = 5,method=NULL, droplist = NULL) {
   if (length(intersect(names(data), droplist)) < length(droplist)) {
     stop("Droplist variables not found in data set")
@@ -650,15 +800,15 @@ ImputeData <- function(data, m = 5, maxit = 5,method=NULL, droplist = NULL) {
   return(mids.out)
 }
 
-#Time difference of 39.56778 mins，Number of logged events: 374
+#running empty models wave 1
 start.time <- Sys.time() 
-imp_m<-ImputeData(m_indrespt,m=1,maxit = 0,droplist = c("m_indpxui_xw","m_strata","m_psu","leave" ))
+imp_m<-ImputeData(m_indrespt,m=1,maxit = 0,droplist = c("m_indscui_xw","m_strata","m_psu","leave","age_sq" ))
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-#Time difference of 1.174014 hours；Number of logged events: 290
+#running empty models wave 13
 start.time <- Sys.time() 
 imp_a<-ImputeData(a_indrespt,m=1,maxit = 0,droplist = c("a_indinus_xw","a_strata"  , "a_psu" ,"leave" ))
 end.time <- Sys.time() 
@@ -667,26 +817,34 @@ time.taken
 
 #adjusting the methods
 impmethod_m<-imp_m$method
-impmethod_m["m_sex_dv"]<-"logreg"
-impmethod_m["m_urban_dv"]<-"logreg"
+impmethod_m["child"]<-"logreg"
+impmethod_m["student"]<-"logreg"
+impmethod_m["unemployed"]<-"logreg"
+impmethod_m["sex"]<-"logreg"
+impmethod_m["urban"]<-"logreg"
 impmethod_m["lvpab"]<-"logreg"
 
+
+
 impmethod_a<-imp_a$method
-impmethod_a["a_sex_dv"]<-"logreg"
-impmethod_a["a_urban_dv"]<-"logreg"
+impmethod_a["child"]<-"logreg"
+impmethod_a["student"]<-"logreg"
+impmethod_a["unemployed"]<-"logreg"
+impmethod_a["sex"]<-"logreg"
+impmethod_a["urban"]<-"logreg"
 impmethod_a["lvpab"]<-"logreg"
 
-#Time difference of  35.07069 mins,Number of logged events: 373
+#Time difference of 59.97699 mins,Number of logged events: 527
 start.time <- Sys.time() 
-imp_m<-ImputeData(m_indrespt,m=5,maxit = 5,droplist = c("m_indpxui_xw","m_strata","m_psu","leave" ),method=impmethod_m)
+imp_m<-ImputeData(m_indrespt,m=5,maxit = 5,droplist = c("m_indscui_xw","m_strata","m_psu","leave","age_sq" ),method=impmethod_m)
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-#Time difference of 1.121355 hours；Number of logged events: 291
+#Time difference of 1.794366 hours；Number of logged events: 426
 start.time <- Sys.time() 
-imp_a<-ImputeData(a_indrespt,m=5,maxit = 5,droplist = c("a_indinus_xw","a_strata"  , "a_psu" ,"leave" ),method=impmethod_a)
+imp_a<-ImputeData(a_indrespt,m=5,maxit = 5,droplist = c("a_indinus_xw","a_strata"  , "a_psu" ,"leave","age_sq" ),method=impmethod_a)
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
@@ -695,7 +853,7 @@ time.taken
 ### Wave 1 females
 
 ```{r}
-#with imputation: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
+#combine multiple imputation and design effects: function built from https://gist.github.com/AaronGullickson/3ccb3fdd1778b32fc46df40d78faf5d3
 
 lm_svy_af <- function(formula, imputations) {
   options(survey.lonely.psu="adjust")
@@ -710,7 +868,7 @@ lm_svy_af <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
-                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Female" )
+                         weights=~a_indinus_xw, data=imputation),a_age_dv%in%c(16:35) & sex==1)
     #run the model
     model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
     #collect the results
@@ -752,7 +910,7 @@ lm_svy_af_2 <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
-                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Female"  )
+                         weights=~a_indinus_xw, data=imputation),a_age_dv%in%c(16:35) & sex==1)
     #run the model
     model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
     #collect the results
@@ -781,29 +939,29 @@ lm_svy_af_2 <- function(formula, imputations) {
 ```{r}
 #running models
 
-#m1 Time difference of 5.143367 mins
+#m1 Time difference of 6.008511 mins
 start.time <- Sys.time() 
 
-m1af_imp<-lm_svy_af(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m1af_imp<-lm_svy_af(lvpab~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
-#m2 Time difference of 18.08427 mins
+#m2 Time difference of 11.10609 mins
 start.time <- Sys.time() 
 
-m2af_imp<-lm_svy_af_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m2af_imp<-lm_svy_af_2(ledes~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-#m3 Time difference of 10.00591 mins
+#m3 Time difference of 5.973452 mins
 start.time <- Sys.time() 
 
-m3af_imp<-lm_svy_af_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m3af_imp<-lm_svy_af_2(leave~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -829,7 +987,7 @@ lm_svy_am <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
-                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Male"  )
+                         weights=~a_indinus_xw, data=imputation),a_age_dv%in%c(16:35) & sex==0)
     #run the model
     model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
     #collect the results
@@ -871,7 +1029,7 @@ lm_svy_am_2 <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~a_psu, strata=~a_strata, 
-                         weights=~a_indinus_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& a_sex_dv=="Male" )
+                         weights=~a_indinus_xw, data=imputation),a_age_dv%in%c(16:35) & sex==0)
     #run the model
     model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
     #collect the results
@@ -896,29 +1054,29 @@ lm_svy_am_2 <- function(formula, imputations) {
 ```
 
 ```{r}
-#m1 Time difference of 5.283394 mins
+#m1 Time difference of 4.829139 mins
 start.time <- Sys.time() 
 
-m1am_imp<-lm_svy_am(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m1am_imp<-lm_svy_am(lvpab~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
-#m2 Time difference of 17.32093 mins
+#m2 Time difference of 8.255699 mins
 start.time <- Sys.time() 
 
-m2am_imp<-lm_svy_am_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m2am_imp<-lm_svy_am_2(ledes~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
 time.taken
 
 
-#m3 Time difference of 10.53404 mins
+#Time difference of 4.343771 mins
 start.time <- Sys.time() 
 
-m3am_imp<-lm_svy_am_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+a_urban_dv,imp_a)
+m3am_imp<-lm_svy_am_2(leave~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+a_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_a)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -944,7 +1102,7 @@ lm_svy_mf <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~m_psu, strata=~m_strata, 
-                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Female" )
+                         weights=~m_indscui_xw, data=imputation),m_age_dv%in%c(16:35) & sex==1)
     #run the model
     model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
     #collect the results
@@ -986,7 +1144,7 @@ lm_svy_mf_2 <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <- subset(svydesign(id=~m_psu, strata=~m_strata, 
-                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Female" )
+                         weights=~m_indscui_xw, data=imputation),m_age_dv%in%c(16:35) & sex==1)
     #run the model
     model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
     #collect the results
@@ -1015,10 +1173,10 @@ lm_svy_mf_2 <- function(formula, imputations) {
 ```{r}
 #running models
 
-#m1 Time difference of 2.939297 mins
+#m1 Time difference of 2.074453 mins
 start.time <- Sys.time() 
 
-m1bf_imp<-lm_svy_mf(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m1bf_imp<-lm_svy_mf(lvpab~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1027,7 +1185,7 @@ time.taken
 #m2 Time difference of 8.87294 mins
 start.time <- Sys.time() 
 
-m2bf_imp<-lm_svy_mf_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m2bf_imp<-lm_svy_mf_2(ledes~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1037,7 +1195,7 @@ time.taken
 #m3 Time difference of 4.866161 mins
 start.time <- Sys.time() 
 
-m3bf_imp<-lm_svy_mf_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m3bf_imp<-lm_svy_mf_2(leave~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1064,7 +1222,7 @@ lm_svy_mm <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <-subset(svydesign(id=~m_psu, strata=~m_strata, 
-                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Male")
+                         weights=~m_indscui_xw, data=imputation),m_age_dv%in%c(16:35) & sex==0)
     
     #run the model
     model <- svyglm(formula, design=imputation.svy,family=quasibinomial)
@@ -1107,7 +1265,7 @@ lm_svy_mm_2 <- function(formula, imputations) {
     imputation <- complete(imputations, i)
     #create the design effect object
     imputation.svy <-subset(svydesign(id=~m_psu, strata=~m_strata, 
-                         weights=~m_indpxui_xw, data=imputation),age_group%in%c("16-20","21-25","26-30","31-35")& m_sex_dv=="Male")
+                         weights=~m_indscui_xw, data=imputation),m_age_dv%in%c(16:35) & sex==0)
         
     #run the model
     model <- svy_vglm(formula, design=imputation.svy,family=multinomial(refLevel=1))
@@ -1138,7 +1296,7 @@ lm_svy_mm_2 <- function(formula, imputations) {
 #m1 Time difference of 3.179687 mins
 start.time <- Sys.time() 
 
-m1bm_imp<-lm_svy_mm(lvpab~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m1bm_imp<-lm_svy_mm(lvpab~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1148,7 +1306,7 @@ time.taken
 #m2 Time difference of 8.01764 mins
 start.time <- Sys.time() 
 
-m2bm_imp<-lm_svy_mm_2(ledes~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m2bm_imp<-lm_svy_mm_2(ledes~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1158,7 +1316,7 @@ time.taken
 #m3 Time difference of 4.359161 mins
 start.time <- Sys.time() 
 
-m3bm_imp<-lm_svy_mm_2(leave~fases+fasesXage+age_group+factor(mawork)+factor(maedu)+factor(paedu)+factor(edu)+factor(racel)+m_urban_dv,imp_m)
+m3bm_imp<-lm_svy_mm_2(leave~fases+fasesXage+factor(maedu)+factor(paedu)+factor(mawork)+parentage+m_age_dv+age_sq+factor(edu)+lnincome+factor(child)+factor(student)+factor(unemployed)+health+factor(urban)+factor(houseprices),imp_m)
 
 end.time <- Sys.time() 
 time.taken <- end.time - start.time 
@@ -1226,10 +1384,6 @@ Evidence supporting MAR over MCAR would be if the distribution of **x2** for th
 pbox(a_indrespt, pos = 11)
 
 
-```
-
-```{r}
-pbox(m_indresp, pos = 17)
 ```
 
 ### Models
@@ -1493,8 +1647,4 @@ test2<-complete.cases(testb)
 table(test2)
 
 #comple cases of males and females in wave 1 and 13: 434, 3927
-```
-
-```{r}
-
 ```
