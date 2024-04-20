@@ -1,0 +1,1507 @@
+---
+title: "UKHLS exploration (weighed kin) 4.20"
+format: html
+editor: visual
+---
+
+## Reading and Cleaning data
+
+```{r echo = T, results = 'hide'}
+#houskeeping
+#Clear objects already in the environment – start with a clean slate
+rm(list=ls())
+
+#loading libraries
+library(tidyverse)
+library(svyVGAM)
+library(sjlabelled)
+library(desctable)
+library(summarytools)
+library(naniar)
+library(survey)
+library(svrep)
+library(Hmisc)
+library(srvyr)
+library(marginaleffects)
+library(haven)
+library(catregs)
+library(margins)
+library(modelsummary)
+library(zoo)
+library(mice)
+library(stargazer)
+library(texreg)
+library(VIM)
+library(lattice)
+library(ggplot2)
+```
+
+### Wave 1-5 egoalt (8-6) hhresp (8-6)
+
+```{r}
+inpath<-"D:/r git projects/ox-R/final essay/UKHLS n BHPS stata/UKDA-6614-stata/stata/stata13_se/"
+missval <- c(-9, -8, -7, -2, -1)
+
+```
+
+### Wave 8\~13 egoalt (9-13) hhresp (9-13)
+
+```{r}
+#data================================================
+#wave 8
+h_indresp <- read_dta(file=paste0(inpath, "ukhls/h_indresp.dta")) 
+h_indresp<-h_indresp%>%dplyr::select(pidp, h_hidp, h_mastat_dv,
+         h_age_dv, h_sex_dv, h_hiqual_dv,
+         h_mastat_dv, h_racel_dv,h_fimnnet_dv,h_nchild_dv,h_urban_dv,h_gor_dv,h_jbstat,h_sf1,h_scsf1)
+
+#wave 9
+i_indresp <- read_dta(file=paste0(inpath, "ukhls/i_indresp.dta"))
+i_indresp<-i_indresp%>%dplyr::select(pidp, i_hidp, i_mastat_dv,
+         i_age_dv, i_sex_dv, i_hiqual_dv,
+         i_mastat_dv, i_racel_dv,i_fimnnet_dv,i_nchild_dv,i_urban_dv,i_gor_dv,i_jbstat,i_sf1,i_scsf1)
+
+#wave 10
+j_indresp <- read_dta(file=paste0(inpath, "ukhls/j_indresp.dta"))
+j_indresp<-j_indresp%>%dplyr::select(pidp, j_hidp, j_mastat_dv,
+         j_age_dv, j_sex_dv, j_hiqual_dv,
+         j_mastat_dv, j_racel_dv,j_fimnnet_dv,j_nchild_dv,j_urban_dv,j_gor_dv,j_jbstat,j_sf1,j_scsf1)
+
+
+#wave 11
+k_indresp <- read_dta(file=paste0(inpath, "ukhls/k_indresp.dta"))
+k_indresp<-k_indresp%>%dplyr::select(pidp, k_hidp, k_mastat_dv,
+         k_age_dv, k_sex_dv, k_hiqual_dv,
+         k_mastat_dv, k_racel_dv,k_fimnnet_dv,k_nchild_dv,k_urban_dv,k_gor_dv,k_jbstat,k_sf1,k_scsf1)
+
+#wave 12
+l_indresp <- read_dta(file=paste0(inpath, "ukhls/l_indresp.dta"))
+l_indresp<-l_indresp%>%dplyr::select(pidp, l_hidp, l_mastat_dv,
+         l_age_dv, l_sex_dv, l_hiqual_dv,
+         l_mastat_dv, l_racel_dv,l_fimnnet_dv,l_nchild_dv,l_urban_dv,l_gor_dv,l_jbstat,l_sf1,l_scsf1)
+
+#wave 13
+m_indresp <- read_dta(file=paste0(inpath, "ukhls/m_indresp.dta"))
+
+m_indresp<-m_indresp%>%dplyr::select(pidp, m_hidp, m_mastat_dv,
+         m_age_dv, m_sex_dv, m_hiqual_dv,
+         m_mastat_dv, m_racel_dv,m_fimnnet_dv,m_nchild_dv,m_urban_dv,m_gor_dv,m_jbstat,m_sf1,m_scsf1)
+
+
+
+#egoalt================================================
+h_egoalt<-read_dta(file=paste0(inpath, "ukhls/h_egoalt.dta")) 
+
+i_egoalt<-read_dta(file=paste0(inpath, "ukhls/i_egoalt.dta")) 
+
+j_egoalt<-read_dta(file=paste0(inpath, "ukhls/j_egoalt.dta")) 
+
+k_egoalt<-read_dta(file=paste0(inpath, "ukhls/k_egoalt.dta")) 
+
+l_egoalt<-read_dta(file=paste0(inpath, "ukhls/l_egoalt.dta")) 
+
+m_egoalt<-read_dta(file=paste0(inpath, "ukhls/m_egoalt.dta")) 
+
+#hhresp================================================
+h_hhresp<-read_dta(file=paste0(inpath, "ukhls/h_hhresp.dta"))  %>%
+ dplyr::select(h_hidp,h_tenure_dv)
+
+i_hhresp<-read_dta(file=paste0(inpath, "ukhls/i_hhresp.dta"))  %>%
+ dplyr::select(i_hidp,i_tenure_dv)
+
+j_hhresp<-read_dta(file=paste0(inpath, "ukhls/j_hhresp.dta"))  %>%
+ dplyr::select(j_hidp,j_tenure_dv)
+
+k_hhresp<-read_dta(file=paste0(inpath, "ukhls/k_hhresp.dta"))  %>%
+ dplyr::select(k_hidp,k_tenure_dv)
+
+l_hhresp<-read_dta(file=paste0(inpath, "ukhls/l_hhresp.dta"))  %>%
+ dplyr::select(l_hidp,l_tenure_dv)
+
+m_hhresp<-read_dta(file=paste0(inpath, "ukhls/m_hhresp.dta"))  %>%
+ dplyr::select(m_hidp,m_tenure_dv)
+```
+
+```{r}
+##remove all missing values in indresp
+for (i in 1:5) {
+  h_indresp<- h_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))
+}
+for (i in 1:5) {
+  i_indresp<- i_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))
+}
+for (i in 1:5) {
+  j_indresp<- j_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))
+}
+for (i in 1:5) {
+  k_indresp<- k_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))
+}
+for (i in 1:5) {
+  l_indresp<- l_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+
+for (i in 1:5) {
+  m_indresp<- m_indresp %>%
+    mutate_all(., list(~na_if(., missval[i])))}
+```
+
+### Getting the youths not living with parents in the next wave
+
+#### Wave 1\~5
+
+```{r}
+
+```
+
+#### Wave 8\~12
+
+##### Wave 8
+
+```{r}
+mothers <- h_egoalt %>%
+  filter(h_relationship_dv %in% c(4) & h_asex==2) %>%
+  select(pidp, apidp)
+mothers$mother_pidp=mothers$apidp
+
+h_egoalt <- h_egoalt %>%
+  full_join(mothers, by=c("pidp", "apidp")) 
+
+rm(mothers)
+
+fathers <- h_egoalt %>%
+  filter(h_relationship_dv %in% c(4) & h_asex==1) %>%
+  select(pidp, apidp)
+fathers$father_pidp=fathers$apidp
+
+h_egoalt <- h_egoalt %>%
+  full_join(fathers, by=c("pidp", "apidp"))
+
+rm(fathers)
+
+
+#wave 8 leave: not live with mothers
+h_egoalt$separated_m <- labelled(
+  ifelse((!is.na(h_egoalt$mother_pidp) & h_egoalt$h_enwstat==5), -8, 
+  ifelse((!is.na(h_egoalt$mother_pidp)  & h_egoalt$h_anwstat==5), 3,
+  ifelse((!is.na(h_egoalt$mother_pidp)  & 
+          h_egoalt$h_anwstat==2 & h_egoalt$h_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(h_egoalt$mother_pidp) & 
+          h_egoalt$h_anwstat %in% c(3,4) & h_egoalt$h_enwstat==2), 2,
+  ifelse((!is.na(h_egoalt$mother_pidp) &
+          h_egoalt$h_anwstat==2 & h_egoalt$h_enwstat==2), 1,
+  ifelse((!is.na(h_egoalt$mother_pidp)& h_egoalt$h_anwstat==1), 0,
+        ifelse((!is.na(h_egoalt$mother_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological mother at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated_m at next wave" = 1,
+             "possibly separated_m at next wave" = 2,
+             "mother not alive at next wave" = 3))
+
+#wave 8 leave: not live with fathers
+h_egoalt$separated_f <- labelled(
+  ifelse((!is.na(h_egoalt$father_pidp) & h_egoalt$h_enwstat==5), -8, 
+  ifelse((!is.na(h_egoalt$father_pidp)  & h_egoalt$h_anwstat==5), 3,
+  ifelse((!is.na(h_egoalt$father_pidp)  & 
+          h_egoalt$h_anwstat==2 & h_egoalt$h_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(h_egoalt$father_pidp) & 
+          h_egoalt$h_anwstat %in% c(3,4) & h_egoalt$h_enwstat==2), 2,
+  ifelse((!is.na(h_egoalt$father_pidp) &
+          h_egoalt$h_anwstat==2 & h_egoalt$h_enwstat==2), 1,
+  ifelse((!is.na(h_egoalt$father_pidp) & h_egoalt$h_anwstat==1), 0,
+        ifelse((!is.na(h_egoalt$father_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological father at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated at next wave" = 1,
+             "possibly separated at next wave" = 2,
+             "father not alive at next wave" = 3))
+
+
+#fill the separate indicator
+h_egoalt<-h_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_m,.direction="updown")
+h_egoalt<-h_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_f,.direction="updown")
+
+#find out who separate from both parents
+#wave 9 leave: not live with both parents
+h_egoalt$separated<- labelled(
+  ifelse((h_egoalt$separated_m%in%c(1)&h_egoalt$separated_f%in%c(1)),1,
+         
+  ifelse((h_egoalt$separated_m%in%c(1)& is.na(h_egoalt$separated_f)),1,#one
+  ifelse((h_egoalt$separated_f%in%c(1)& is.na(h_egoalt$separated_m)),1,
+         
+  ifelse((h_egoalt$separated_f%in%c(1)& h_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((h_egoalt$separated_m%in%c(1)& h_egoalt$separated_f%in%c(3)),1,      
+
+         
+  ifelse((h_egoalt$separated_m%in%c(2)&h_egoalt$separated_f%in%c(2)),2,
+  ifelse((h_egoalt$separated_m%in%c(1)&h_egoalt$separated_f%in%c(2)),2,
+  ifelse((h_egoalt$separated_m%in%c(2)&h_egoalt$separated_f%in%c(1)),2,
+         
+  ifelse((h_egoalt$separated_m%in%c(2)& is.na(h_egoalt$separated_f)),2,#one
+  ifelse((h_egoalt$separated_f%in%c(2)& is.na(h_egoalt$separated_m)),2, 
+         
+  ifelse((h_egoalt$separated_f%in%c(2)& h_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((h_egoalt$separated_m%in%c(2)& h_egoalt$separated_f%in%c(3)),1,             
+         
+         
+  ifelse((h_egoalt$separated_m%in%c(0)|h_egoalt$separated_f%in%c(0)),0,
+  ifelse((h_egoalt$separated_m%in%c(-8)|h_egoalt$separated_f%in%c(-8)),-8,
+         ifelse((!is.na(h_egoalt$separated_m)|!is.na(h_egoalt$separated_f)),-9,NA))))))))))))))),
+         
+  label = "Whether living with at least one biological parent at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together with at least one parent at next wave" = 0,
+             "separated from both parents at next wave" = 1,
+             "possibly separated from both parents at next wave" = 2))
+
+
+#living with both parents indicator 
+h_egoalt<-h_egoalt %>%group_by(pidp) %>%tidyr::fill(mother_pidp,.direction="updown")
+h_egoalt<-h_egoalt %>%group_by(pidp) %>%tidyr::fill(father_pidp,.direction="updown")
+
+
+#flags for living with mother or father this wave
+h_egoalt<-h_egoalt%>%group_by(pidp)%>%mutate(livewithmother=ifelse(!is.na(h_egoalt$mother_pidp),1,0))
+h_egoalt<-h_egoalt%>%group_by(pidp)%>%mutate(livewithfather=ifelse(!is.na(h_egoalt$father_pidp),1,0))
+
+#living with both parents this wave
+h_egoalt$liveboth<-c(0)
+h_egoalt$liveboth[h_egoalt$livewithmother==1 & h_egoalt$livewithfather==1]<-1
+
+
+#a column for living with mother, father, or both this wave
+h_egoalt$lvpa<-c(0)
+h_egoalt$lvpa[h_egoalt$livewithmother==1]<-1
+h_egoalt$lvpa[h_egoalt$livewithfather==1]<-2
+h_egoalt$lvpa[h_egoalt$liveboth==1]<-3
+
+h_egoalt$lvpa<-factor(h_egoalt$lvpa, levels=c(0,1,2,3),labels=c("leaver","live with mother","live with father","live with both parents"))
+
+
+
+```
+
+```{r}
+#merge datafiles
+h_indresp<-h_indresp%>%dplyr::select(pidp, h_hidp, h_mastat_dv,
+         h_age_dv, h_sex_dv, h_hiqual_dv,
+         h_mastat_dv, h_racel_dv,h_fimnnet_dv,h_nchild_dv,h_urban_dv,h_gor_dv,h_jbstat,h_sf1,h_scsf1)
+
+
+h_egoaltt<-h_egoalt%>%dplyr::select(pidp,h_hidp,mother_pidp,father_pidp,separated_m,separated_f,separated,lvpa)
+
+#child levels
+h_indrespc<-join_all(list(h_indresp,h_egoaltt), by='pidp', type='left')
+h_indrespc<-h_indrespc %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+h_indrespc<-h_indrespc[(which(!is.na(h_indrespc$mother_pidp)|!is.na(h_indrespc$father_pidp))),]
+
+
+
+#add parent levels
+
+h_indresppt <-h_indresp
+
+#join parental data by pidp
+father<-as.data.frame(h_indrespc$father_pidp)
+mother<-as.data.frame(h_indrespc$mother_pidp)
+
+colnames(father)[1]<-"pidp"
+colnames(mother)[1]<-"pidp"
+
+#attached parental values
+h_indresppf<-join_all(list(father,h_indresppt), by='pidp', type='left')
+h_indresppm<-join_all(list(mother,h_indresppt), by='pidp', type='left')
+
+#for housing tenure
+h_indresppf<-join_all(list(h_indresppf,h_hhresp), by='h_hidp', type='left')
+h_indresppm<-join_all(list(h_indresppm,h_hhresp), by='h_hidp', type='left')
+
+
+#rename var to differentiate parents
+h_indresppf <-
+        rename_at(h_indresppf, vars(starts_with("h_")), ~str_replace(., "h_", "ip_")) 
+h_indresppm <-
+        rename_at(h_indresppm, vars(starts_with("h_")), ~str_replace(., "h_", "im_")) 
+
+#join to the child-level data by parent's pidp
+colnames(h_indresppf)[1]<-"father_pidp"
+colnames(h_indresppm)[1]<-"mother_pidp"
+
+h_indresppf<-join_all(list(h_indrespc,h_indresppf), by="father_pidp", type='left')
+h_indresppm<-join_all(list(h_indrespc,h_indresppm), by="mother_pidp", type='left')
+
+h_indrespp<-join_all(list(h_indresppm,h_indresppf), by="pidp", type='left')
+
+h_indrespp<-h_indrespp %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+rm(h_egoaltt,h_indrespc,h_indresppf,h_indresppm,h_indresppt)
+
+```
+
+```{r}
+## add cross wave identifier
+h_indrespp$from_wave_h<-1
+```
+
+##### Wave 9
+
+```{r}
+mothers <- i_egoalt %>%
+  filter(i_relationship_dv %in% c(4) & i_asex==2) %>%
+  select(pidp, apidp)
+mothers$mother_pidp=mothers$apidp
+
+i_egoalt <- i_egoalt %>%
+  full_join(mothers, by=c("pidp", "apidp")) 
+
+rm(mothers)
+
+fathers <- i_egoalt %>%
+  filter(i_relationship_dv %in% c(4) & i_asex==1) %>%
+  select(pidp, apidp)
+fathers$father_pidp=fathers$apidp
+
+i_egoalt <- i_egoalt %>%
+  full_join(fathers, by=c("pidp", "apidp"))
+
+rm(fathers)
+
+
+#wave 9 leave: not live with mothers
+i_egoalt$separated_m <- labelled(
+  ifelse((!is.na(i_egoalt$mother_pidp) & i_egoalt$i_enwstat==5), -8, 
+  ifelse((!is.na(i_egoalt$mother_pidp)  & i_egoalt$i_anwstat==5), 3,
+  ifelse((!is.na(i_egoalt$mother_pidp)  & 
+          i_egoalt$i_anwstat==2 & i_egoalt$i_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(i_egoalt$mother_pidp) & 
+          i_egoalt$i_anwstat %in% c(3,4) & i_egoalt$i_enwstat==2), 2,
+  ifelse((!is.na(i_egoalt$mother_pidp) &
+          i_egoalt$i_anwstat==2 & i_egoalt$i_enwstat==2), 1,
+  ifelse((!is.na(i_egoalt$mother_pidp)& i_egoalt$i_anwstat==1), 0,
+        ifelse((!is.na(i_egoalt$mother_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological mother at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated_m at next wave" = 1,
+             "possibly separated_m at next wave" = 2,
+             "mother not alive at next wave" = 3))
+
+#wave 9 leave: not live with fathers
+i_egoalt$separated_f <- labelled(
+  ifelse((!is.na(i_egoalt$father_pidp) & i_egoalt$i_enwstat==5), -8, 
+  ifelse((!is.na(i_egoalt$father_pidp)  & i_egoalt$i_anwstat==5), 3,
+  ifelse((!is.na(i_egoalt$father_pidp)  & 
+          i_egoalt$i_anwstat==2 & i_egoalt$i_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(i_egoalt$father_pidp) & 
+          i_egoalt$i_anwstat %in% c(3,4) & i_egoalt$i_enwstat==2), 2,
+  ifelse((!is.na(i_egoalt$father_pidp) &
+          i_egoalt$i_anwstat==2 & i_egoalt$i_enwstat==2), 1,
+  ifelse((!is.na(i_egoalt$father_pidp) & i_egoalt$i_anwstat==1), 0,
+        ifelse((!is.na(i_egoalt$father_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological father at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated at next wave" = 1,
+             "possibly separated at next wave" = 2,
+             "father not alive at next wave" = 3))
+
+
+#fill the separate indicator
+i_egoalt<-i_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_m,.direction="updown")
+i_egoalt<-i_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_f,.direction="updown")
+
+#find out who separate from both parents
+#wave 9 leave: not live with both parents
+i_egoalt$separated<- labelled(
+  ifelse((i_egoalt$separated_m%in%c(1)&i_egoalt$separated_f%in%c(1)),1,
+         
+  ifelse((i_egoalt$separated_m%in%c(1)& is.na(i_egoalt$separated_f)),1,#one
+  ifelse((i_egoalt$separated_f%in%c(1)& is.na(i_egoalt$separated_m)),1,
+         
+  ifelse((i_egoalt$separated_f%in%c(1)& i_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((i_egoalt$separated_m%in%c(1)& i_egoalt$separated_f%in%c(3)),1,      
+
+         
+  ifelse((i_egoalt$separated_m%in%c(2)&i_egoalt$separated_f%in%c(2)),2,
+  ifelse((i_egoalt$separated_m%in%c(1)&i_egoalt$separated_f%in%c(2)),2,
+  ifelse((i_egoalt$separated_m%in%c(2)&i_egoalt$separated_f%in%c(1)),2,
+         
+  ifelse((i_egoalt$separated_m%in%c(2)& is.na(i_egoalt$separated_f)),2,#one
+  ifelse((i_egoalt$separated_f%in%c(2)& is.na(i_egoalt$separated_m)),2, 
+         
+  ifelse((i_egoalt$separated_f%in%c(2)& i_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((i_egoalt$separated_m%in%c(2)& i_egoalt$separated_f%in%c(3)),1,             
+         
+         
+  ifelse((i_egoalt$separated_m%in%c(0)|i_egoalt$separated_f%in%c(0)),0,
+  ifelse((i_egoalt$separated_m%in%c(-8)|i_egoalt$separated_f%in%c(-8)),-8,
+         ifelse((!is.na(i_egoalt$separated_m)|!is.na(i_egoalt$separated_f)),-9,NA))))))))))))))),
+         
+  label = "Whether living with at least one biological parent at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together with at least one parent at next wave" = 0,
+             "separated from both parents at next wave" = 1,
+             "possibly separated from both parents at next wave" = 2))
+
+
+#living with both parents indicator 
+i_egoalt<-i_egoalt %>%group_by(pidp) %>%tidyr::fill(mother_pidp,.direction="updown")
+i_egoalt<-i_egoalt %>%group_by(pidp) %>%tidyr::fill(father_pidp,.direction="updown")
+
+
+#flags for living with mother or father this wave
+i_egoalt<-i_egoalt%>%group_by(pidp)%>%mutate(livewithmother=ifelse(!is.na(i_egoalt$mother_pidp),1,0))
+i_egoalt<-i_egoalt%>%group_by(pidp)%>%mutate(livewithfather=ifelse(!is.na(i_egoalt$father_pidp),1,0))
+
+#living with both parents this wave
+i_egoalt$liveboth<-c(0)
+i_egoalt$liveboth[i_egoalt$livewithmother==1 & i_egoalt$livewithfather==1]<-1
+
+
+#a column for living with mother, father, or both this wave
+i_egoalt$lvpa<-c(0)
+i_egoalt$lvpa[i_egoalt$livewithmother==1]<-1
+i_egoalt$lvpa[i_egoalt$livewithfather==1]<-2
+i_egoalt$lvpa[i_egoalt$liveboth==1]<-3
+
+i_egoalt$lvpa<-factor(i_egoalt$lvpa, levels=c(0,1,2,3),labels=c("leaver","live with mother","live with father","live with both parents"))
+
+
+```
+
+```{r}
+#merge datafiles
+i_indresp<-i_indresp%>%dplyr::select(pidp, i_hidp, i_mastat_dv,
+         i_age_dv, i_sex_dv, i_hiqual_dv,
+         i_mastat_dv, i_racel_dv,i_fimnnet_dv,i_nchild_dv,i_urban_dv,i_gor_dv,i_jbstat,i_sf1,i_scsf1)
+
+
+i_egoaltt<-i_egoalt%>%dplyr::select(pidp,i_hidp,mother_pidp,father_pidp,separated_m,separated_f,separated,lvpa)
+
+#child levels
+i_indrespc<-join_all(list(i_indresp,i_egoaltt), by='pidp', type='left')
+i_indrespc<-i_indrespc %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+i_indrespc<-i_indrespc[(which(!is.na(i_indrespc$mother_pidp)|!is.na(i_indrespc$father_pidp))),]
+
+
+
+#add parent levels
+
+i_indresppt <-i_indresp
+
+#join parental data by pidp
+father<-as.data.frame(i_indrespc$father_pidp)
+mother<-as.data.frame(i_indrespc$mother_pidp)
+
+colnames(father)[1]<-"pidp"
+colnames(mother)[1]<-"pidp"
+
+#attached parental values
+i_indresppf<-join_all(list(father,i_indresppt), by='pidp', type='left')
+i_indresppm<-join_all(list(mother,i_indresppt), by='pidp', type='left')
+
+#for housing tenure
+i_indresppf<-join_all(list(i_indresppf,i_hhresp), by='i_hidp', type='left')
+i_indresppm<-join_all(list(i_indresppm,i_hhresp), by='i_hidp', type='left')
+
+
+#rename var to differentiate parents
+i_indresppf <-
+        rename_at(i_indresppf, vars(starts_with("i_")), ~str_replace(., "i_", "ip_")) 
+i_indresppm <-
+        rename_at(i_indresppm, vars(starts_with("i_")), ~str_replace(., "i_", "im_")) 
+
+#join to the child-level data by parent's pidp
+colnames(i_indresppf)[1]<-"father_pidp"
+colnames(i_indresppm)[1]<-"mother_pidp"
+
+i_indresppf<-join_all(list(i_indrespc,i_indresppf), by="father_pidp", type='left')
+i_indresppm<-join_all(list(i_indrespc,i_indresppm), by="mother_pidp", type='left')
+
+i_indrespp<-join_all(list(i_indresppm,i_indresppf), by="pidp", type='left')
+
+i_indrespp<-i_indrespp %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+rm(i_egoaltt,i_indrespc,i_indresppf,i_indresppm,i_indresppt)
+```
+
+```{r}
+## add cross wave identifier
+i_indrespp$from_wave_i<-1
+```
+
+##### Wave 10
+
+```{r}
+mothers <- j_egoalt %>%
+  filter(j_relationship_dv %in% c(4) & j_asex==2) %>%
+  select(pidp, apidp)
+mothers$mother_pidp=mothers$apidp
+
+j_egoalt <- j_egoalt %>%
+  full_join(mothers, by=c("pidp", "apidp")) 
+
+rm(mothers)
+
+fathers <- j_egoalt %>%
+  filter(j_relationship_dv %in% c(4) & j_asex==1) %>%
+  select(pidp, apidp)
+fathers$father_pidp=fathers$apidp
+
+j_egoalt <- j_egoalt %>%
+  full_join(fathers, by=c("pidp", "apidp"))
+
+rm(fathers)
+
+
+#wave 9 leave: not live with mothers
+j_egoalt$separated_m <- labelled(
+  ifelse((!is.na(j_egoalt$mother_pidp) & j_egoalt$j_enwstat==5), -8, 
+  ifelse((!is.na(j_egoalt$mother_pidp)  & j_egoalt$j_anwstat==5), 3,
+  ifelse((!is.na(j_egoalt$mother_pidp)  & 
+          j_egoalt$j_anwstat==2 & j_egoalt$j_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(j_egoalt$mother_pidp) & 
+          j_egoalt$j_anwstat %in% c(3,4) & j_egoalt$j_enwstat==2), 2,
+  ifelse((!is.na(j_egoalt$mother_pidp) &
+          j_egoalt$j_anwstat==2 & j_egoalt$j_enwstat==2), 1,
+  ifelse((!is.na(j_egoalt$mother_pidp)& j_egoalt$j_anwstat==1), 0,
+        ifelse((!is.na(j_egoalt$mother_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological mother at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated_m at next wave" = 1,
+             "possibly separated_m at next wave" = 2,
+             "mother not alive at next wave" = 3))
+
+#wave 9 leave: not live with fathers
+j_egoalt$separated_f <- labelled(
+  ifelse((!is.na(j_egoalt$father_pidp) & j_egoalt$j_enwstat==5), -8, 
+  ifelse((!is.na(j_egoalt$father_pidp)  & j_egoalt$j_anwstat==5), 3,
+  ifelse((!is.na(j_egoalt$father_pidp)  & 
+          j_egoalt$j_anwstat==2 & j_egoalt$j_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(j_egoalt$father_pidp) & 
+          j_egoalt$j_anwstat %in% c(3,4) & j_egoalt$j_enwstat==2), 2,
+  ifelse((!is.na(j_egoalt$father_pidp) &
+          j_egoalt$j_anwstat==2 & j_egoalt$j_enwstat==2), 1,
+  ifelse((!is.na(j_egoalt$father_pidp) & j_egoalt$j_anwstat==1), 0,
+        ifelse((!is.na(j_egoalt$father_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological father at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated at next wave" = 1,
+             "possibly separated at next wave" = 2,
+             "father not alive at next wave" = 3))
+
+
+#fill the separate indicator
+j_egoalt<-j_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_m,.direction="updown")
+j_egoalt<-j_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_f,.direction="updown")
+
+#find out who separate from both parents
+#wave 9 leave: not live with both parents
+j_egoalt$separated<- labelled(
+  ifelse((j_egoalt$separated_m%in%c(1)&j_egoalt$separated_f%in%c(1)),1,
+         
+  ifelse((j_egoalt$separated_m%in%c(1)& is.na(j_egoalt$separated_f)),1,#one
+  ifelse((j_egoalt$separated_f%in%c(1)& is.na(j_egoalt$separated_m)),1,
+         
+  ifelse((j_egoalt$separated_f%in%c(1)& j_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((j_egoalt$separated_m%in%c(1)& j_egoalt$separated_f%in%c(3)),1,      
+
+         
+  ifelse((j_egoalt$separated_m%in%c(2)&j_egoalt$separated_f%in%c(2)),2,
+  ifelse((j_egoalt$separated_m%in%c(1)&j_egoalt$separated_f%in%c(2)),2,
+  ifelse((j_egoalt$separated_m%in%c(2)&j_egoalt$separated_f%in%c(1)),2,
+         
+  ifelse((j_egoalt$separated_m%in%c(2)& is.na(j_egoalt$separated_f)),2,#one
+  ifelse((j_egoalt$separated_f%in%c(2)& is.na(j_egoalt$separated_m)),2, 
+         
+  ifelse((j_egoalt$separated_f%in%c(2)& j_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((j_egoalt$separated_m%in%c(2)& j_egoalt$separated_f%in%c(3)),1,             
+         
+         
+  ifelse((j_egoalt$separated_m%in%c(0)|j_egoalt$separated_f%in%c(0)),0,
+  ifelse((j_egoalt$separated_m%in%c(-8)|j_egoalt$separated_f%in%c(-8)),-8,
+         ifelse((!is.na(j_egoalt$separated_m)|!is.na(j_egoalt$separated_f)),-9,NA))))))))))))))),
+         
+  label = "Whether living with at least one biological parent at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together with at least one parent at next wave" = 0,
+             "separated from both parents at next wave" = 1,
+             "possibly separated from both parents at next wave" = 2))
+
+
+#living with both parents indicator 
+j_egoalt<-j_egoalt %>%group_by(pidp) %>%tidyr::fill(mother_pidp,.direction="updown")
+j_egoalt<-j_egoalt %>%group_by(pidp) %>%tidyr::fill(father_pidp,.direction="updown")
+
+
+#flags for living with mother or father this wave
+j_egoalt<-j_egoalt%>%group_by(pidp)%>%mutate(livewithmother=ifelse(!is.na(j_egoalt$mother_pidp),1,0))
+j_egoalt<-j_egoalt%>%group_by(pidp)%>%mutate(livewithfather=ifelse(!is.na(j_egoalt$father_pidp),1,0))
+
+#living with both parents this wave
+j_egoalt$liveboth<-c(0)
+j_egoalt$liveboth[j_egoalt$livewithmother==1 & j_egoalt$livewithfather==1]<-1
+
+
+#a column for living with mother, father, or both this wave
+j_egoalt$lvpa<-c(0)
+j_egoalt$lvpa[j_egoalt$livewithmother==1]<-1
+j_egoalt$lvpa[j_egoalt$livewithfather==1]<-2
+j_egoalt$lvpa[j_egoalt$liveboth==1]<-3
+
+j_egoalt$lvpa<-factor(j_egoalt$lvpa, levels=c(0,1,2,3),labels=c("leaver","live with mother","live with father","live with both parents"))
+
+```
+
+```{r}
+#merge datafiles
+j_indresp<-j_indresp%>%dplyr::select(pidp, j_hidp, j_mastat_dv,
+         j_age_dv, j_sex_dv, j_hiqual_dv,
+         j_mastat_dv, j_racel_dv,j_fimnnet_dv,j_nchild_dv,j_urban_dv,j_gor_dv,j_jbstat,j_sf1,j_scsf1)
+
+
+j_egoaltt<-j_egoalt%>%dplyr::select(pidp,j_hidp,mother_pidp,father_pidp,separated_m,separated_f,separated,lvpa)
+
+#child levels
+j_indrespc<-join_all(list(j_indresp,j_egoaltt), by='pidp', type='left')
+j_indrespc<-j_indrespc %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+j_indrespc<-j_indrespc[(which(!is.na(j_indrespc$mother_pidp)|!is.na(j_indrespc$father_pidp))),]
+
+
+
+#add parent levels
+
+j_indresppt <-j_indresp
+
+#join parental data by pidp
+father<-as.data.frame(j_indrespc$father_pidp)
+mother<-as.data.frame(j_indrespc$mother_pidp)
+
+colnames(father)[1]<-"pidp"
+colnames(mother)[1]<-"pidp"
+
+#attached parental values
+j_indresppf<-join_all(list(father,j_indresppt), by='pidp', type='left')
+j_indresppm<-join_all(list(mother,j_indresppt), by='pidp', type='left')
+
+#for housing tenure
+j_indresppf<-join_all(list(j_indresppf,j_hhresp), by='j_hidp', type='left')
+j_indresppm<-join_all(list(j_indresppm,j_hhresp), by='j_hidp', type='left')
+
+
+#rename var to differentiate parents
+j_indresppf <-
+        rename_at(j_indresppf, vars(starts_with("j_")), ~str_replace(., "j_", "ip_")) 
+j_indresppm <-
+        rename_at(j_indresppm, vars(starts_with("j_")), ~str_replace(., "j_", "im_")) 
+
+#join to the child-level data by parent's pidp
+colnames(j_indresppf)[1]<-"father_pidp"
+colnames(j_indresppm)[1]<-"mother_pidp"
+
+j_indresppf<-join_all(list(j_indrespc,j_indresppf), by="father_pidp", type='left')
+j_indresppm<-join_all(list(j_indrespc,j_indresppm), by="mother_pidp", type='left')
+
+j_indrespp<-join_all(list(j_indresppm,j_indresppf), by="pidp", type='left')
+
+j_indrespp<-j_indrespp %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+rm(j_egoaltt,j_indrespc,j_indresppf,j_indresppm,j_indresppt)
+
+```
+
+```{r}
+j_indrespp$from_wave_j<-1
+```
+
+##### Wave 11
+
+```{r}
+mothers <- k_egoalt %>%
+  filter(k_relationship_dv %in% c(4) & k_asex==2) %>%
+  select(pidp, apidp)
+mothers$mother_pidp=mothers$apidp
+
+k_egoalt <- k_egoalt %>%
+  full_join(mothers, by=c("pidp", "apidp")) 
+
+rm(mothers)
+
+fathers <- k_egoalt %>%
+  filter(k_relationship_dv %in% c(4) & k_asex==1) %>%
+  select(pidp, apidp)
+fathers$father_pidp=fathers$apidp
+
+k_egoalt <- k_egoalt %>%
+  full_join(fathers, by=c("pidp", "apidp"))
+
+rm(fathers)
+
+
+#wave 8 leave: not live with mothers
+k_egoalt$separated_m <- labelled(
+  ifelse((!is.na(k_egoalt$mother_pidp) & k_egoalt$k_enwstat==5), -8, 
+  ifelse((!is.na(k_egoalt$mother_pidp)  & k_egoalt$k_anwstat==5), 3,
+  ifelse((!is.na(k_egoalt$mother_pidp)  & 
+          k_egoalt$k_anwstat==2 & k_egoalt$k_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(k_egoalt$mother_pidp) & 
+          k_egoalt$k_anwstat %in% c(3,4) & k_egoalt$k_enwstat==2), 2,
+  ifelse((!is.na(k_egoalt$mother_pidp) &
+          k_egoalt$k_anwstat==2 & k_egoalt$k_enwstat==2), 1,
+  ifelse((!is.na(k_egoalt$mother_pidp)& k_egoalt$k_anwstat==1), 0,
+        ifelse((!is.na(k_egoalt$mother_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological mother at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated_m at next wave" = 1,
+             "possibly separated_m at next wave" = 2,
+             "mother not alive at next wave" = 3))
+
+#wave 8 leave: not live with fathers
+k_egoalt$separated_f <- labelled(
+  ifelse((!is.na(k_egoalt$father_pidp) & k_egoalt$k_enwstat==5), -8, 
+  ifelse((!is.na(k_egoalt$father_pidp)  & k_egoalt$k_anwstat==5), 3,
+  ifelse((!is.na(k_egoalt$father_pidp)  & 
+          k_egoalt$k_anwstat==2 & k_egoalt$k_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(k_egoalt$father_pidp) & 
+          k_egoalt$k_anwstat %in% c(3,4) & k_egoalt$k_enwstat==2), 2,
+  ifelse((!is.na(k_egoalt$father_pidp) &
+          k_egoalt$k_anwstat==2 & k_egoalt$k_enwstat==2), 1,
+  ifelse((!is.na(k_egoalt$father_pidp) & k_egoalt$k_anwstat==1), 0,
+        ifelse((!is.na(k_egoalt$father_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological father at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated at next wave" = 1,
+             "possibly separated at next wave" = 2,
+             "father not alive at next wave" = 3))
+
+
+#fill the separate indicator
+k_egoalt<-k_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_m,.direction="updown")
+k_egoalt<-k_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_f,.direction="updown")
+
+#find out who separate from both parents
+#wave 9 leave: not live with both parents
+k_egoalt$separated<- labelled(
+  ifelse((k_egoalt$separated_m%in%c(1)&k_egoalt$separated_f%in%c(1)),1,
+         
+  ifelse((k_egoalt$separated_m%in%c(1)& is.na(k_egoalt$separated_f)),1,#one
+  ifelse((k_egoalt$separated_f%in%c(1)& is.na(k_egoalt$separated_m)),1,
+         
+  ifelse((k_egoalt$separated_f%in%c(1)& k_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((k_egoalt$separated_m%in%c(1)& k_egoalt$separated_f%in%c(3)),1,      
+
+         
+  ifelse((k_egoalt$separated_m%in%c(2)&k_egoalt$separated_f%in%c(2)),2,
+  ifelse((k_egoalt$separated_m%in%c(1)&k_egoalt$separated_f%in%c(2)),2,
+  ifelse((k_egoalt$separated_m%in%c(2)&k_egoalt$separated_f%in%c(1)),2,
+         
+  ifelse((k_egoalt$separated_m%in%c(2)& is.na(k_egoalt$separated_f)),2,#one
+  ifelse((k_egoalt$separated_f%in%c(2)& is.na(k_egoalt$separated_m)),2, 
+         
+  ifelse((k_egoalt$separated_f%in%c(2)& k_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((k_egoalt$separated_m%in%c(2)& k_egoalt$separated_f%in%c(3)),1,             
+         
+         
+  ifelse((k_egoalt$separated_m%in%c(0)|k_egoalt$separated_f%in%c(0)),0,
+  ifelse((k_egoalt$separated_m%in%c(-8)|k_egoalt$separated_f%in%c(-8)),-8,
+         ifelse((!is.na(k_egoalt$separated_m)|!is.na(k_egoalt$separated_f)),-9,NA))))))))))))))),
+         
+  label = "Whether living with at least one biological parent at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together with at least one parent at next wave" = 0,
+             "separated from both parents at next wave" = 1,
+             "possibly separated from both parents at next wave" = 2))
+
+
+#living with both parents indicator 
+k_egoalt<-k_egoalt %>%group_by(pidp) %>%tidyr::fill(mother_pidp,.direction="updown")
+k_egoalt<-k_egoalt %>%group_by(pidp) %>%tidyr::fill(father_pidp,.direction="updown")
+
+
+#flags for living with mother or father this wave
+k_egoalt<-k_egoalt%>%group_by(pidp)%>%mutate(livewithmother=ifelse(!is.na(k_egoalt$mother_pidp),1,0))
+k_egoalt<-k_egoalt%>%group_by(pidp)%>%mutate(livewithfather=ifelse(!is.na(k_egoalt$father_pidp),1,0))
+
+#living with both parents this wave
+k_egoalt$liveboth<-c(0)
+k_egoalt$liveboth[k_egoalt$livewithmother==1 & k_egoalt$livewithfather==1]<-1
+
+
+#a column for living with mother, father, or both this wave
+k_egoalt$lvpa<-c(0)
+k_egoalt$lvpa[k_egoalt$livewithmother==1]<-1
+k_egoalt$lvpa[k_egoalt$livewithfather==1]<-2
+k_egoalt$lvpa[k_egoalt$liveboth==1]<-3
+
+k_egoalt$lvpa<-factor(k_egoalt$lvpa, levels=c(0,1,2,3),labels=c("leaver","live with mother","live with father","live with both parents"))
+
+```
+
+```{r}
+#merge datafiles
+k_indresp<-k_indresp%>%dplyr::select(pidp, k_hidp, k_mastat_dv,
+         k_age_dv, k_sex_dv, k_hiqual_dv,
+         k_mastat_dv, k_racel_dv,k_fimnnet_dv,k_nchild_dv,k_urban_dv,k_gor_dv,k_jbstat,k_sf1,k_scsf1)
+
+
+k_egoaltt<-k_egoalt%>%dplyr::select(pidp,k_hidp,mother_pidp,father_pidp,separated_m,separated_f,separated,lvpa)
+
+#child levels
+k_indrespc<-join_all(list(k_indresp,k_egoaltt), by='pidp', type='left')
+k_indrespc<-k_indrespc %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+k_indrespc<-k_indrespc[(which(!is.na(k_indrespc$mother_pidp)|!is.na(k_indrespc$father_pidp))),]
+
+
+
+#add parent levels
+
+k_indresppt <-k_indresp
+
+#join parental data by pidp
+father<-as.data.frame(k_indrespc$father_pidp)
+mother<-as.data.frame(k_indrespc$mother_pidp)
+
+colnames(father)[1]<-"pidp"
+colnames(mother)[1]<-"pidp"
+
+#attached parental values
+k_indresppf<-join_all(list(father,k_indresppt), by='pidp', type='left')
+k_indresppm<-join_all(list(mother,k_indresppt), by='pidp', type='left')
+
+#for housing tenure
+k_indresppf<-join_all(list(k_indresppf,k_hhresp), by='k_hidp', type='left')
+k_indresppm<-join_all(list(k_indresppm,k_hhresp), by='k_hidp', type='left')
+
+
+#rename var to differentiate parents
+k_indresppf <-
+        rename_at(k_indresppf, vars(starts_with("k_")), ~str_replace(., "k_", "ip_")) 
+k_indresppm <-
+        rename_at(k_indresppm, vars(starts_with("k_")), ~str_replace(., "k_", "im_")) 
+
+#join to the child-level data by parent's pidp
+colnames(k_indresppf)[1]<-"father_pidp"
+colnames(k_indresppm)[1]<-"mother_pidp"
+
+k_indresppf<-join_all(list(k_indrespc,k_indresppf), by="father_pidp", type='left')
+k_indresppm<-join_all(list(k_indrespc,k_indresppm), by="mother_pidp", type='left')
+
+k_indrespp<-join_all(list(k_indresppm,k_indresppf), by="pidp", type='left')
+
+k_indrespp<-k_indrespp %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+rm(k_egoaltt,k_indrespc,k_indresppf,k_indresppm,k_indresppt)
+
+```
+
+```{r}
+k_indrespp$from_wave_k<-1
+```
+
+##### Wave 12
+
+```{r}
+mothers <- l_egoalt %>%
+  filter(l_relationship_dv %in% c(4) & l_asex==2) %>%
+  select(pidp, apidp)
+mothers$mother_pidp=mothers$apidp
+
+l_egoalt <- l_egoalt %>%
+  full_join(mothers, by=c("pidp", "apidp")) 
+
+rm(mothers)
+
+fathers <- l_egoalt %>%
+  filter(l_relationship_dv %in% c(4) & l_asex==1) %>%
+  select(pidp, apidp)
+fathers$father_pidp=fathers$apidp
+
+l_egoalt <- l_egoalt %>%
+  full_join(fathers, by=c("pidp", "apidp"))
+
+rm(fathers)
+
+
+#wave 8 leave: not live with mothers
+l_egoalt$separated_m <- labelled(
+  ifelse((!is.na(l_egoalt$mother_pidp) & l_egoalt$l_enwstat==5), -8, 
+  ifelse((!is.na(l_egoalt$mother_pidp)  & l_egoalt$l_anwstat==5), 3,
+  ifelse((!is.na(l_egoalt$mother_pidp)  & 
+          l_egoalt$l_anwstat==2 & l_egoalt$l_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(l_egoalt$mother_pidp) & 
+          l_egoalt$l_anwstat %in% c(3,4) & l_egoalt$l_enwstat==2), 2,
+  ifelse((!is.na(l_egoalt$mother_pidp) &
+          l_egoalt$l_anwstat==2 & l_egoalt$l_enwstat==2), 1,
+  ifelse((!is.na(l_egoalt$mother_pidp)& l_egoalt$l_anwstat==1), 0,
+        ifelse((!is.na(l_egoalt$mother_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological mother at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated_m at next wave" = 1,
+             "possibly separated_m at next wave" = 2,
+             "mother not alive at next wave" = 3))
+
+#wave 8 leave: not live with fathers
+l_egoalt$separated_f <- labelled(
+  ifelse((!is.na(l_egoalt$father_pidp) & l_egoalt$l_enwstat==5), -8, 
+  ifelse((!is.na(l_egoalt$father_pidp)  & l_egoalt$l_anwstat==5), 3,
+  ifelse((!is.na(l_egoalt$father_pidp)  & 
+          l_egoalt$l_anwstat==2 & l_egoalt$l_enwstat %in% c(3,4)), 2,
+  ifelse((!is.na(l_egoalt$father_pidp) & 
+          l_egoalt$l_anwstat %in% c(3,4) & l_egoalt$l_enwstat==2), 2,
+  ifelse((!is.na(l_egoalt$father_pidp) &
+          l_egoalt$l_anwstat==2 & l_egoalt$l_enwstat==2), 1,
+  ifelse((!is.na(l_egoalt$father_pidp) & l_egoalt$l_anwstat==1), 0,
+        ifelse((!is.na(l_egoalt$father_pidp)), -9, NA))))))),
+  
+  label = "Whether living with biological father at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together at next wave" = 0, "separated at next wave" = 1,
+             "possibly separated at next wave" = 2,
+             "father not alive at next wave" = 3))
+
+
+#fill the separate indicator
+l_egoalt<-l_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_m,.direction="updown")
+l_egoalt<-l_egoalt %>%group_by(pidp) %>%tidyr::fill(separated_f,.direction="updown")
+
+#find out who separate from both parents
+#wave 9 leave: not live with both parents
+l_egoalt$separated<- labelled(
+  ifelse((l_egoalt$separated_m%in%c(1)&l_egoalt$separated_f%in%c(1)),1,
+         
+  ifelse((l_egoalt$separated_m%in%c(1)& is.na(l_egoalt$separated_f)),1,#one
+  ifelse((l_egoalt$separated_f%in%c(1)& is.na(l_egoalt$separated_m)),1,
+         
+  ifelse((l_egoalt$separated_f%in%c(1)& l_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((l_egoalt$separated_m%in%c(1)& l_egoalt$separated_f%in%c(3)),1,      
+
+         
+  ifelse((l_egoalt$separated_m%in%c(2)&l_egoalt$separated_f%in%c(2)),2,
+  ifelse((l_egoalt$separated_m%in%c(1)&l_egoalt$separated_f%in%c(2)),2,
+  ifelse((l_egoalt$separated_m%in%c(2)&l_egoalt$separated_f%in%c(1)),2,
+         
+  ifelse((l_egoalt$separated_m%in%c(2)& is.na(l_egoalt$separated_f)),2,#one
+  ifelse((l_egoalt$separated_f%in%c(2)& is.na(l_egoalt$separated_m)),2, 
+         
+  ifelse((l_egoalt$separated_f%in%c(2)& l_egoalt$separated_m%in%c(3)),1,#deadth
+  ifelse((l_egoalt$separated_m%in%c(2)& l_egoalt$separated_f%in%c(3)),1,             
+         
+         
+  ifelse((l_egoalt$separated_m%in%c(0)|l_egoalt$separated_f%in%c(0)),0,
+  ifelse((l_egoalt$separated_m%in%c(-8)|l_egoalt$separated_f%in%c(-8)),-8,
+         ifelse((!is.na(l_egoalt$separated_m)|!is.na(l_egoalt$separated_f)),-9,NA))))))))))))))),
+         
+  label = "Whether living with at least one biological parent at the next wave",
+  labels = c("missing" = -9, 
+             "ego not alive at next wave" = -8,
+             "living together with at least one parent at next wave" = 0,
+             "separated from both parents at next wave" = 1,
+             "possibly separated from both parents at next wave" = 2))
+
+
+#living with both parents indicator 
+l_egoalt<-l_egoalt %>%group_by(pidp) %>%tidyr::fill(mother_pidp,.direction="updown")
+l_egoalt<-l_egoalt %>%group_by(pidp) %>%tidyr::fill(father_pidp,.direction="updown")
+
+
+#flags for living with mother or father this wave
+l_egoalt<-l_egoalt%>%group_by(pidp)%>%mutate(livewithmother=ifelse(!is.na(l_egoalt$mother_pidp),1,0))
+l_egoalt<-l_egoalt%>%group_by(pidp)%>%mutate(livewithfather=ifelse(!is.na(l_egoalt$father_pidp),1,0))
+
+#living with both parents this wave
+l_egoalt$liveboth<-c(0)
+l_egoalt$liveboth[l_egoalt$livewithmother==1 & l_egoalt$livewithfather==1]<-1
+
+
+#a column for living with mother, father, or both this wave
+l_egoalt$lvpa<-c(0)
+l_egoalt$lvpa[l_egoalt$livewithmother==1]<-1
+l_egoalt$lvpa[l_egoalt$livewithfather==1]<-2
+l_egoalt$lvpa[l_egoalt$liveboth==1]<-3
+
+l_egoalt$lvpa<-factor(l_egoalt$lvpa, levels=c(0,1,2,3),labels=c("leaver","live with mother","live with father","live with both parents"))
+
+```
+
+```{r}
+#merge datafiles
+l_indresp<-l_indresp%>%dplyr::select(pidp, l_hidp, l_mastat_dv,
+         l_age_dv, l_sex_dv, l_hiqual_dv,
+         l_mastat_dv, l_racel_dv,l_fimnnet_dv,l_nchild_dv,l_urban_dv,l_gor_dv,l_jbstat,l_sf1,l_scsf1)
+
+
+l_egoaltt<-l_egoalt%>%dplyr::select(pidp,l_hidp,mother_pidp,father_pidp,separated_m,separated_f,separated,lvpa)
+
+#child levels
+l_indrespc<-join_all(list(l_indresp,l_egoaltt), by='pidp', type='left')
+l_indrespc<-l_indrespc %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+l_indrespc<-l_indrespc[(which(!is.na(l_indrespc$mother_pidp)|!is.na(l_indrespc$father_pidp))),]
+
+
+
+#add parent levels
+
+l_indresppt <-l_indresp
+
+#join parental data by pidp
+father<-as.data.frame(l_indrespc$father_pidp)
+mother<-as.data.frame(l_indrespc$mother_pidp)
+
+colnames(father)[1]<-"pidp"
+colnames(mother)[1]<-"pidp"
+
+#attached parental values
+l_indresppf<-join_all(list(father,l_indresppt), by='pidp', type='left')
+l_indresppm<-join_all(list(mother,l_indresppt), by='pidp', type='left')
+
+#for housing tenure
+l_indresppf<-join_all(list(l_indresppf,l_hhresp), by='l_hidp', type='left')
+l_indresppm<-join_all(list(l_indresppm,l_hhresp), by='l_hidp', type='left')
+
+
+#rename var to differentiate parents
+l_indresppf <-
+        rename_at(l_indresppf, vars(starts_with("l_")), ~str_replace(., "l_", "ip_")) 
+l_indresppm <-
+        rename_at(l_indresppm, vars(starts_with("l_")), ~str_replace(., "l_", "im_")) 
+
+#join to the child-level data by parent's pidp
+colnames(l_indresppf)[1]<-"father_pidp"
+colnames(l_indresppm)[1]<-"mother_pidp"
+
+l_indresppf<-join_all(list(l_indrespc,l_indresppf), by="father_pidp", type='left')
+l_indresppm<-join_all(list(l_indrespc,l_indresppm), by="mother_pidp", type='left')
+
+l_indrespp<-join_all(list(l_indresppm,l_indresppf), by="pidp", type='left')
+
+l_indrespp<-l_indrespp %>% distinct_at(vars(pidp), .keep_all = TRUE)
+
+rm(l_egoaltt,l_indrespc,l_indresppf,l_indresppm,l_indresppt)
+
+```
+
+```{r}
+l_indrespp$from_wave_l<-1
+```
+
+#### Merging all
+
+```{r}
+#remove all the prefixes
+h_indrespp <-
+        rename_at(h_indrespp, vars(starts_with("h_")), ~str_replace(., "h_", ""))
+i_indrespp <-
+        rename_at(i_indrespp, vars(starts_with("i_")), ~str_replace(., "i_", ""))
+j_indrespp <-
+        rename_at(j_indrespp, vars(starts_with("j_")), ~str_replace(., "j_", ""))
+k_indrespp <-
+        rename_at(k_indrespp, vars(starts_with("k_")), ~str_replace(., "k_", ""))
+l_indrespp <-
+        rename_at(l_indrespp, vars(starts_with("l_")), ~str_replace(., "l_", ""))
+
+
+indrespb<-rbind.fill(h_indrespp,i_indrespp,j_indrespp,k_indrespp,l_indrespp)
+
+```
+
+#### Coding variables
+
+child level
+
+```{r}
+#child level
+
+#level of education completed
+indrespb$edu<-c(0)
+indrespb$edu[indrespb$hiqual_dv%in%c(9)]<-1 #low (everything below)
+indrespb$edu[indrespb$hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+indrespb$edu[indrespb$hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+indrespb$edu[indrespb$edu==0]<-NA
+
+print(attr(indrespb$hiqual_dv,"labels"))
+indrespb$edu<-factor(indrespb$edu,levels=c(1,2,3),labels=c('low',"middle","high"))
+
+
+#family structure
+indrespb$family_status<-c(0)
+#coresident partner and child
+indrespb$family_status[indrespb$nchild_dv>=1 & indrespb$mastat_dv%in%c(2,3,10)]<-1
+#coresident partner
+indrespb$family_status[indrespb$mastat_dv%in%c(2,3,10)&indrespb$nchild_dv==0]<-2
+#coresident child
+indrespb$family_status[indrespb$nchild_dv>=1&indrespb$mastat_dv%in%c(0,1,4,5,6,7,8,9)]<-3
+#no coresident partner or child=0
+
+indrespb$family_status<-factor(indrespb$family_status,levels=c(0,1,2,3),labels=c("No coresident partner or child","coresident partner and child","coresident partner","coresident child"))
+
+#age centered
+indrespb$age_centered<-indrespb$age_dv-16
+#age squared
+indrespb$age_sq<-indrespb$age_centered**2
+
+
+#logarithm of income
+indrespb$fimnnet_dv[indrespb$fimnnet_dv<0]<-0
+#add 1 to all income values to avoid -inf in log transformation
+indrespb$incomeadd<-indrespb$fimnnet_dv+1
+indrespb$lnincome<-log(indrespb$incomeadd)
+indrespb<-indrespb%>%dplyr::select(-incomeadd)
+
+
+#racel groups 
+indrespb$racel<-c(0)
+indrespb$racel[indrespb$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indrespb$racel[indrespb$racel_dv%in%c(14,15)]<-2 #African Caribbean
+indrespb$racel[indrespb$racel_dv%in%c(9,10,11)]<-3 #Indiani,Pakistani, Bangladeshi
+indrespb$racel[indrespb$racel_dv%in%c(12,13)]<-4 #Other Asian
+indrespb$racel[indrespb$racel==0]<-5 #Other
+
+indrespb$racel<-factor(indrespb$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
+
+indrespb$racel[is.na(indrespb$racel_dv)]<-NA
+
+##two-categories
+indrespb$racel2<-c(0)
+indrespb$racel2[indrespb$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indrespb$racel2[!(indrespb$racel_dv%in%c(1,2,3,4))]<-2 #non-Whites
+indrespb$racel2[is.na(indrespb$racel_dv)]<-NA
+
+indrespb$racel2<-factor(indrespb$racel2,levels=c(1,2),labels=c("Whites","non-Whites"))
+
+#education status
+indrespb$student<-c(0)
+indrespb$student[indrespb$jbstat%in%c(7)]<-1 #full-time student
+indrespb$student[is.na(indrespb$jbstat)]<-NA
+
+#employment status
+indrespb$unemployed<-c(0)
+indrespb$unemployed[indrespb$jbstat%in%c(3)]<-1 
+indrespb$unemployed[is.na(indrespb$jbstat)]<-NA
+
+#housing prices
+indrespb$houseprices<-c(0)
+indrespb$houseprices[indrespb$gor_dv%in%c(1,10,11,12)]<-1 #low
+indrespb$houseprices[indrespb$gor_dv%in%c(2,3,4,5)]<-2 #middle
+indrespb$houseprices[indrespb$gor_dv%in%c(6,7,8,9)]<-3 #high
+indrespb$houseprices[is.na(indrespb$gor_dv)]<-NA
+
+indrespb$houseprices<-factor(indrespb$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+
+#urban,sex binary
+indrespb$sex<-c(0)
+indrespb$sex[indrespb$sex_dv==2]<-1 #females
+indrespb$sex[is.na(indrespb$sex_dv)]<-NA
+
+indrespb$urban<-c(0)
+indrespb$urban[indrespb$urban_dv==1]<-1 #urban areas
+indrespb$urban[is.na(indrespb$urban_dv)]<-NA
+
+indrespb<-indrespb%>%mutate(health=coalesce(sf1,scsf1))
+
+#living with both biological parents
+indrespb$liveboth<-c(0)
+indrespb$liveboth[indrespb$lvpa=="live with both parents"]<-1
+indrespb$liveboth<-factor(indrespb$liveboth,levels=c(0,1),labels=c("not living with both parents","living with both parents"))
+```
+
+parental level
+
+```{r}
+#level of education completed
+#Fathers:
+indrespb$paedu<-c(0)
+indrespb$paedu[indrespb$ip_hiqual_dv%in%c(9)]<-1 #low (everything below)
+indrespb$paedu[indrespb$ip_hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+indrespb$paedu[indrespb$ip_hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+indrespb$paedu[indrespb$paedu==0]<-NA
+
+print(attr(indrespb$ip_hiqual_dv,"labels"))
+indrespb$paedu<-factor(indrespb$paedu,levels=c(1,2,3),labels=c('low',"middle","high"))
+
+#Mothers:
+indrespb$maedu<-c(0)
+indrespb$maedu[indrespb$im_hiqual_dv%in%c(9)]<-1 #low (everything below)
+indrespb$maedu[indrespb$im_hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+indrespb$maedu[indrespb$im_hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+indrespb$maedu[indrespb$maedu==0]<-NA
+
+indrespb$maedu<-factor(indrespb$maedu,levels=c(1,2,3),labels=c('low',"middle","high"))
+
+
+#the highest education level between two parents
+indrespb<-transform(indrespb, parentedu = pmin(im_hiqual_dv, ip_hiqual_dv))
+indrespb$parentedu<-ifelse(is.na(indrespb$parentedu), indrespb$im_hiqual_dv, indrespb$parentedu)
+indrespb$parentedu<-ifelse(is.na(indrespb$parentedu), indrespb$ip_hiqual_dv, indrespb$parentedu)
+
+indrespb$parent_edu<-c(0)
+indrespb$parent_edu[indrespb$parentedu%in%c(9)]<-1 #low (everything below, the category "other" is included)
+indrespb$parent_edu[indrespb$parentedu%in%c(3,4,5)]<-2 #middle (complete A-level or have some qualifications)
+indrespb$parent_edu[indrespb$parentedu%in%c(1,2)]<-3 #high (have a degree)
+indrespb$parent_edu[indrespb$parentedu==0]<-NA
+
+indrespb$parent_edu<-factor(indrespb$parent_edu,levels=c(1,2,3),labels=c('low',"middle","high"))
+indrespb<-indrespb%>%dplyr::select(-parentedu)
+
+#general health of parents**
+indrespb<-indrespb%>%mutate(health_father=coalesce(ip_sf1, ip_scsf1))
+indrespb<-indrespb%>%mutate(health_mother=coalesce(im_sf1, im_scsf1))
+#least healthy parent
+indrespb<-transform(indrespb, parenthealth = pmax(health_father, health_mother))
+indrespb$parenthealth<-ifelse(is.na(indrespb$parenthealth), indrespb$health_father, indrespb$parenthealth)
+indrespb$parenthealth<-ifelse(is.na(indrespb$parenthealth), indrespb$health_mother, indrespb$parenthealth)
+
+#parent's age (youngest)
+indrespb <- transform(indrespb, parentage = pmin(ip_age_dv
+, im_age_dv))
+indrespb$parentage<-ifelse(is.na(indrespb$parentage), indrespb$ip_age_dv, indrespb$parentage)
+indrespb$parentage<-ifelse(is.na(indrespb$parentage), indrespb$im_age_dv, indrespb$parentage) 
+
+#parent's income (sum and logged)
+indrespb$palnincome<-indrespb$ip_fimnnet_dv+indrespb$im_fimnnet_dv
+indrespb$palnincome[indrespb$palnincome<0]<-0
+#add 1 to all income values to avoid -inf in log transformation
+indrespb$paincomeadd<-indrespb$palnincome+1
+indrespb$palnincome<-log(indrespb$paincomeadd)
+indrespb<-indrespb%>%dplyr::select(-paincomeadd)
+
+#parental tenure
+indrespb$mateure<-c(0)
+indrespb$mateure[indrespb$im_tenure_dv%in%c(1,2)]<-1 #ownership
+indrespb$mateure[indrespb$im_tenure_dv%in%c(3,4,5)]<-2 #social rent
+indrespb$mateure[indrespb$im_tenure_dv%in%c(6,7,8)]<-3 #private rent n other
+indrespb$mateure[indrespb$mateure==0]<-NA
+
+indrespb$mateure<-factor(indrespb$mateure,levels=c(1,2,3),labels=c("ownership","social rent","private rent n other"))
+
+indrespb$pateure<-c(0)
+indrespb$pateure[indrespb$ip_tenure_dv%in%c(1,2)]<-1 #ownership
+indrespb$pateure[indrespb$ip_tenure_dv%in%c(3,4,5)]<-2 #social rent
+indrespb$pateure[indrespb$ip_tenure_dv%in%c(6,7,8)]<-3 #private rent n other
+indrespb$pateure[indrespb$pateure==0]<-NA
+
+indrespb$pateure<-factor(indrespb$pateure,levels=c(1,2,3),labels=c("ownership","social rent","private rent n other"))
+
+#the parents who have the most adv housing
+indrespb <- transform(indrespb, housingtenure = pmin(ip_tenure_dv, im_tenure_dv))
+indrespb$housingtenure<-ifelse(is.na(indrespb$housingtenure), indrespb$ip_tenure_dv, indrespb$housingtenure)
+indrespb$housingtenure<-ifelse(is.na(indrespb$housingtenure), indrespb$im_tenure_dv, indrespb$housingtenure) 
+
+indrespb$housing_tenure<-c(0)
+indrespb$housing_tenure[indrespb$housingtenure%in%c(1,2)]<-1 #ownership
+indrespb$housing_tenure[indrespb$housingtenure%in%c(3,4,5)]<-2 #social rent
+indrespb$housing_tenure[indrespb$housingtenure%in%c(6,7,8)]<-3 #private rent n other
+indrespb$housing_tenure[indrespb$housing_tenure==0]<-NA
+indrespb$housing_tenure<-factor(indrespb$housing_tenure,levels=c(1,2,3),labels=c("ownership","social rent","private rent n other"))
+
+indrespb<-indrespb%>%dplyr::select(-housingtenure)
+```
+
+```{r}
+#cross_wave n interaction variables
+#age * parental income
+indrespb$paincomeXage<-indrespb$palnincome*indrespb$age_centered
+
+#cross wave identifiers
+indrespb$wave<-c(0)
+indrespb$wave[indrespb$from_wave_h==1]<-1
+indrespb$wave[indrespb$from_wave_i==1]<-2
+indrespb$wave[indrespb$from_wave_j==1]<-3
+indrespb$wave[indrespb$from_wave_k==1]<-4
+indrespb$wave[indrespb$from_wave_l==1]<-5
+
+indrespb$wave<-factor(indrespb$wave,levels=c(1,2,3,4,5),labels=c("wave 8","wave 9","wave 10","wave 11","wave 12"))
+
+#indrespb<-indrespb%>%dplyr::select(-from_wave_h,-from_wave_i,-from_wave_j,-from_wave_k,-from_wave_l)
+
+```
+
+#### Depdendent variables
+
+```{r}
+indrespb$leave<-c(0)
+indrespb$leave[indrespb$separated%in%c(1,2)]<-1
+
+#wave h leavers
+hleave<-indrespb[which(indrespb$leave==1&indrespb$from_wave_h==1),]
+#join with i indresp for information
+hleave<-join_all(list(hleave,i_indresp), by='pidp', type='left')
+
+hleave$out<-c(0)
+#leaving for marriage
+hleave$out[hleave$i_mastat_dv%in%c(2,3)]<-1
+
+#leaving for cohabitation
+hleave$out[hleave$i_mastat_dv%in%c(10)]<-2
+
+#leaving as a full-time student
+hleave$out[hleave$i_jbstat%in%c(7)]<-3
+
+#leaving for other reasons=0
+
+
+#wave i leavers
+ileave<-indrespb[which(indrespb$leave==1&indrespb$from_wave_i==1),]
+#join with j indresp for information
+ileave<-join_all(list(ileave, j_indresp), by='pidp', type='left')
+
+ileave$out<-c(0)
+#leaving for marriage
+ileave$out[ileave$j_mastat_dv%in%c(2,3)]<-1
+
+#leaving for coiabitation
+ileave$out[ileave$j_mastat_dv%in%c(10)]<-2
+
+#leaving as a full-time student
+ileave$out[ileave$j_jbstat%in%c(7)]<-3
+
+#leaving for other reasons=0
+
+
+#wave j leavers
+jleave<-indrespb[which(indrespb$leave==1&indrespb$from_wave_j==1),]
+#join with k indresp for information
+jleave<-join_all(list(jleave, k_indresp), by='pidp', type='left')
+
+jleave$out<-c(0)
+#leaving for marriage
+jleave$out[jleave$k_mastat_dv%in%c(2,3)]<-1
+
+#leaving for coiabitation
+jleave$out[jleave$k_mastat_dv%in%c(10)]<-2
+
+#leaving as a full-time student
+jleave$out[jleave$k_jbstat%in%c(7)]<-3
+
+#leaving for other reasons=0
+
+#wave k leavers
+kleave<-indrespb[which(indrespb$leave==1&indrespb$from_wave_k==1),]
+#join with l indresp for information
+kleave<-join_all(list(kleave, l_indresp), by='pidp', type='left')
+
+kleave$out<-c(0)
+#leaving for marriage
+kleave$out[kleave$l_mastat_dv%in%c(2,3)]<-1
+
+#leaving for coiabitation
+kleave$out[kleave$l_mastat_dv%in%c(10)]<-2
+
+#leaving as a full-time student
+kleave$out[kleave$l_jbstat%in%c(7)]<-3
+
+#leaving for other reasons=0
+
+#wave l leavers
+lleave<-indrespb[which(indrespb$leave==1&indrespb$from_wave_l==1),]
+#join with m indresp for information
+lleave<-join_all(list(lleave, m_indresp), by='pidp', type='left')
+
+lleave$out<-c(0)
+#leaving for marriage
+lleave$out[lleave$m_mastat_dv%in%c(2,3)]<-1
+
+#leaving for coiabitation
+lleave$out[lleave$m_mastat_dv%in%c(10)]<-2
+
+#leaving as a full-time student
+lleave$out[lleave$m_jbstat%in%c(7)]<-3
+
+#leaving for other reasons=0
+out<-rbind.fill(hleave,ileave,jleave,kleave,lleave)
+out<-out%>%dplyr::select(pidp,wave,out)
+indrespb<-join_all(list(indrespb,out), by=c("pidp", "wave"), type='left')
+```
+
+```{r}
+#mar
+indrespb$mar<-c(0)
+indrespb$mar[indrespb$out==1]<-1
+
+#cohab
+indrespb$cohab<-c(0)
+indrespb$cohab[indrespb$out==2]<-1
+
+#student
+indrespb$student<-c(0)
+indrespb$student[indrespb$out==3]<-1
+
+#other
+indrespb$other<-c(0)
+indrespb$other[indrespb$out==0]<-1
+```
+
+## Model building
+
+### Wave 1-5
+
+### Wave 8-12
+
+```{r}
+indrespby<-indrespb[which(indrespb$age_centered%in%c(0:14)),]
+indrespbfy<-indrespb[which(indrespb$age_centered%in%c(0:14)&indrespb$sex==1),]
+indrespbmy<-indrespb[which(indrespb$age_centered%in%c(0:14)&indrespb$sex==0),]
+
+mar_bf<-glm(mar~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
+
+
+cohab_bf<-glm(cohab~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
+
+student_bf<-glm(student~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
+
+all_bf<-glm(leave~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
+```
+
+```{r}
+#paincomeXage effects more strongly for men
+mar_bm<-glm(mar~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbmy,family=binomial(link="logit"))
+
+
+cohab_bm<-glm(cohab~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbmy,family=binomial(link="logit"))
+
+student_bm<-glm(student~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbmy,family=binomial(link="logit"))
+
+all_bm<-glm(leave~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbmy,family=binomial(link="logit"))
+```
+
+```{r}
+mar_b<-glm(mar~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+factor(sex)+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespby,family=binomial(link="logit"))
+
+
+cohab_b<-glm(cohab~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+factor(sex)+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespby,family=binomial(link="logit"))
+
+student_b<-glm(student~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+factor(sex)+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespby,family=binomial(link="logit"))
+
+other_b<-glm(other~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+factor(sex)+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespby,family=binomial(link="logit"))
+
+all_b<-glm(leave~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+age_centered+factor(sex)+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespby,family=binomial(link="logit"))
+```
+
+parentincomeXage has a stronger effect on men concerning leaving the parental homes without destination specifications in wave 8-12 (leave)
