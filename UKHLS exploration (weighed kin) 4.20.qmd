@@ -1149,6 +1149,10 @@ indrespb$edu[indrespb$edu==0]<-NA
 print(attr(indrespb$hiqual_dv,"labels"))
 indrespb$edu<-factor(indrespb$edu,levels=c(1,2,3),labels=c('low',"middle","high"))
 
+#two-category education
+indrespb$edu2<-c(0)
+indrespb$edu2[indrespb$hiqual_dv%in%c(1,2)]<-1 #high (have a degree)
+indrespb$edu2<-factor(indrespb$edu2,levels=c(0,1),labels=c("have a degree","do not have a degree"))
 
 #family structure
 indrespb$family_status<-c(0)
@@ -1268,6 +1272,12 @@ indrespb$parent_edu[indrespb$parentedu%in%c(1,2)]<-3 #high (have a degree)
 indrespb$parent_edu[indrespb$parentedu==0]<-NA
 
 indrespb$parent_edu<-factor(indrespb$parent_edu,levels=c(1,2,3),labels=c('low',"middle","high"))
+
+#two-category education
+indrespb$parent_edu2<-c(0)
+indrespb$parent_edu2[indrespb$parentedu%in%c(1,2)]<-1 #high (have a degree)
+indrespb$parent_edu2<-factor(indrespb$parent_edu,levels=c(0,1),labels=c('have a degree',"do not have a degree"))
+
 indrespb<-indrespb%>%dplyr::select(-parentedu)
 
 #general health of parents**
@@ -1470,7 +1480,6 @@ indrespbfy<-indrespb[which(indrespb$age_centered%in%c(0:14)&indrespb$sex==1),]
 indrespbmy<-indrespb[which(indrespb$age_centered%in%c(0:14)&indrespb$sex==0),]
 
 mar_bf<-glm(mar~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
-
 
 cohab_bf<-glm(cohab~palnincome+paincomeXage+factor(parent_edu)+factor(housing_tenure)+parenthealth+parentage+factor(liveboth)+age_centered+lnincome+factor(edu)+factor(family_status)+factor(racel2)+factor(student)+factor(unemployed)+factor(urban)+factor(houseprices)+factor(wave),data=indrespbfy,family=binomial(link="logit"))
 
