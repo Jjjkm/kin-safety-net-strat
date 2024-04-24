@@ -1,0 +1,427 @@
+---
+title: "1079251"
+format: html
+editor: visual
+---
+
+## ![](images/ef31201f380cae10cb4cfffd860b5a0.png)
+
+# Reading data
+
+```{r}
+#houskeeping
+#Clear objects already in the environment – start with a clean slate
+rm(list=ls())
+
+#loading libraries
+library(tidyverse)
+library(svyVGAM)
+library(sjlabelled)
+library(desctable)
+library(summarytools)
+library(naniar)
+library(Hmisc)
+library(marginaleffects)
+library(haven)
+library(catregs)
+library(margins)
+library(modelsummary)
+library(zoo)
+library(stargazer)
+library(texreg)
+library(VIM)
+library(lattice)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(khb)
+library(reshape2)
+library(kableExtra)
+library(lmtest)
+library(rowr)
+```
+
+```{r}
+#read all data
+inpath<-"D:/r git projects/ox-R/AQM/"
+climatesurvey <- read.csv(file=paste0(inpath, "climatesurvey.csv")) 
+schoolsdata <- read.csv(file=paste0(inpath, "schoolsdata.csv")) 
+nlsy18<-read.csv(file=paste0(inpath, "nlsy18plus_selection.csv"))
+intern<-read.csv(file=paste0(inpath, "intern_data.csv"))
+load("D:\\r git projects\\ox-R\\AQM\\gss_jazz.RData")
+```
+
+# Section A – OLS and logistic regression
+
+## SECTION A1 
+
+For this question, you need to load the dataframe in gss_jazz.RData. These data come from the 1993round of the US General Social Survey (gss website). For more information, you can consult the1972-2022 cumulative codebook (3800 pages!) and data documentation on the website, but theyare not necessary for the completion of this question.Imagine you are a sociologist interested in cultural consumption and taste differences, who wants toknow if **there is an age difference in liking or not liking jazz**. You are asked to evaluate the **hypothesis that the association between age and liking jazz is different for men and women**.
+
+1.Test the hypothesis with a logistic regression model and present the results in three ways: **logit
+coefficients**, **odds ratios**, and **predicted probabilities**. Explain how you test the hypothesis. Discuss
+and explain the results
+
+To better test the interaction effects in the logistic regression, we will use the Mize's (2019) method of marginal effects and test of second differences because it answers what the effect of age on average for males or females on liking jazz and inform us where across the age range there are significant gender differences in age effects.
+
+```{r}
+#look at the distribution of the variables
+summary(gss_jazz)
+table(is.na(gss_jazz))
+
+#build a model to estimate the gender differences in the effect of age on the probability of liking jazz
+m1<-glm(jazz_n~ageq+sex+ageq*sex,data=gss_jazz,family = binomial(link="logit"))
+```
+
+```{r}
+#using the catreg package, create an object design to compute the predicted probabilities
+design<-margins.des(m1,ivs=expand.grid(sex=c("Male","Female"),ageq=c("Age 18-32","Age 32-44","Age 44-60","Age 60+")))
+design
+
+#plug in the model m1 and the design matrix into margins to check gender-related interaction effects
+p1<-margins(m1,design)
+
+#plot the probabilities of loving jazz by sex and age
+figure1<-ggplot(data=p1,
+       aes(x=ageq,y=fitted,
+           group=sex,color=sex,
+           ymin=fitted-se.fitted,ymax=fitted+se.fitted))+
+        geom_line()+
+        geom_ribbon(alpha=.1,colour="azure2")
+figure1
+#it looks like males are more likely to be jazz lovers if they are younger compared with their female peers, but for the older cohorts, this trend by gender reverses
+```
+
+The regression results of the m1 and figure1 show that only for the most senior age cohort (age 60+), there is an significant interaction effect of gender and age on liking jazz, with women age 60+ have the age effect of liking jazz of -1.08+0.64=-0.44 compared with men (-1.08).
+
+```{r}
+#1st way of checking the interactions: using the first and second differences to compare and calculate the standard error to derive the significance of the differences between men and women in each age cohort
+
+#To deal with no numeric alike variable error when applying the first.diff.fitted, we assigned new values to each age cohort and transferred the sex cohort to numeric
+
+jazz<-gss_jazz%>%select(jazz_n,ageq,sex)
+jazz$ageq_new<-c(0)
+jazz$ageq_new[jazz$ageq=="Age 18-32"]<-18
+jazz$ageq_new[jazz$ageq=="Age 32-44"]<-32
+jazz$ageq_new[jazz$ageq=="Age 44-60"]<-44
+jazz$ageq_new[jazz$ageq=="Age 60+"]<-60
+
+jazz$sex<-ifelse(jazz$sex=="Male",0,1) #female==1
+
+#create a new design object and model
+m1_new<-glm(jazz_n~ageq_new+sex+ageq_new*sex,data=jazz,family = binomial(link="logit"))
+design_new<-margins.des(m1_new,ivs=expand.grid(sex=c(0,1),ageq_new=c(18,32,44,60)))
+
+
+#show the gender comparison of predicted probabilities liking jazz in each age cohort
+#age 18-32
+f1<-data.frame(first.diff.fitted(m1_new,design_new,compare=c(1,2)))
+#age 32-44
+f2<-data.frame(first.diff.fitted(m1_new,design_new,compare=c(3,4)))
+#age 44-60
+f3<-data.frame(first.diff.fitted(m1_new,design_new,compare=c(5,6)))
+#age 60+
+f4<-data.frame(first.diff.fitted(m1_new,design_new,compare=c(7,8)))
+
+dat1<-rbind(f1,f2,f3,f4)
+rownames(dat1)<-c("Age 18-32","Age 32-44","Age 44-60","Age 60+")
+dat1<-dat1%>%select(first.diff,std.error,p.value)
+colnames(dat1)[1]<-"First/Second Difference"
+```
+
+It seems that for the youngest age cohort (age 18-32), there are some significant gender differences in liking jazz (corresponding to Figure 1), with men having a higher probability of liking jazz than women (0.088\*). However, for any other older age cohorts, these differences in predicted probabilities by gender vanish.
+
+```{r}
+#Now we use the second difference to examine whether the age effect on the probability of liking jazz is significantly different for men and women using the original model m1 with age cohort as a factorial variable
+
+#age 18-32 & age 32-44
+d1<-data.frame(second.diff.fitted(m1,design,compare=c(1,2,3,4)))
+#age 18-32 & age 44-60
+d2<-data.frame(second.diff.fitted(m1,design,compare=c(1,2,5,6)))
+#age 18-32 & age 60+
+d3<-data.frame(second.diff.fitted(m1,design,compare=c(1,2,7,8)))
+
+
+#age 32-44 & age 44-60
+d4<-data.frame(second.diff.fitted(m1,design,compare=c(3,4,5,6)))
+#age 32-44 & age 60+
+d5<-data.frame(second.diff.fitted(m1,design,compare=c(3,4,7,8)))
+
+#age 44-60 & age 60+
+d6<-data.frame(second.diff.fitted(m1,design,compare=c(5,6,7,8)))
+
+
+
+#make a table for presenting the second difference test
+dat2<-rbind(d1,d2,d3,d4,d5,d6)
+rownames(dat2)<-c("Age 18-32 & Age 32-44","Age 18-32 & Age 44-60","Age 18-32 & Age 60+","Age 32-44 & Age 44-60","Age 32-44 & Age 60+","Age 44-60 & Age 60+")
+
+dat2<-dat2%>%select(-term)
+dat2<-dat2%>%select(est,std.error,p.value)
+colnames(dat2)[1]<-"First/Second Difference"
+
+dat3<-rbind(dat1,dat2)
+
+table2<-kbl(dat3,caption = "First and second difference test for the interaction effects")%>%
+kable_classic(full_width = F, html_font = "Cambria")%>%
+pack_rows("First Difference",1,4)%>%
+pack_rows("Second Difference",5,10)
+```
+
+It seems that only when comparing males and females in the youngest (18-32) and oldest (60+) cohorts, the interaction effect of age and gender is significant (0.155\*). That is, in comparing the youngest (18-32) and oldest (60+) cohorts, the age effect that make older adults less likely to have preference for jazz, is stronger for males than for females.
+
+```{r}
+#2nd way of checking the interactions: compare the average marginal effect of age on liking jazz by gender
+cames<-summary(marginaleffects(m1,variables="ageq",by="sex"))
+compare.margins(margins=cames$estimate,margins.ses = cames$std.error)
+
+```
+
+The p-value is 0.091 (larger than 0.05), and according to this analysis, there are no significant differences in the average marginal effects of age in liking jazz for men and women, at least not for only comparing the youngest (18-32) and oldest (60+) age cohorts.
+
+```{r}
+#present the results in three ways: logit coefficients, odds ratios, and predicted probabilities.
+
+m2<-lm(jazz_n~ageq+sex+ageq*sex,data=gss_jazz)
+#table summarizing model1 by logit coefficients+linear probability model
+convertModel <- function(model) {
+  tr <- createTexreg(
+    coef.names = names(model$coef), 
+    coef = as.numeric(summary(model)$coefficients[,1]), 
+    se = as.numeric(summary(model)$coefficients[,2]), 
+    pvalues = as.numeric(summary(model)$coefficients[,4]),
+    gof.names = c("N","AIC"), 
+    gof = c(nobs(model),AIC(model)), 
+    gof.decimal = c(F,F)
+
+  )
+}
+table1<-htmlreg(lapply(list(m1,m2), convertModel),file="logitp_compare.html",custom.model.names = c("Model 1 presented in logit coefficients","Model 2"),caption="Comparison of the logistic and linear probability model", 
+        caption.above = TRUE)
+
+
+
+#table summarizing model1 by odds ratios
+table3<-modelsummary(list("Model 1"=m1),fmt=2,statistic = "conf.int",conf_level = 0.95,exponentiate = T,stars = T,title="Model 1 presented in odds ratios")
+table3|>
+    kable_classic(full_width = F, html_font = "Cambria")
+
+
+#plot of predicted probabilities by age and sex
+figure1
+
+
+```
+
+2.Test the hypothesis with a linear probability model. Explain the model and the results. Discuss how this compares to the logistic model and its results.
+
+```{r}
+#OLS on a binary variable
+m2<-lm(jazz_n~ageq+sex+ageq*sex,data=gss_jazz)
+summary(m2)
+```
+
+The linear probability model (m2) fits the ordinary least squared regression on a binary dependent variable and yields analogous results, similar to the logistic model (m1). The interaction effect of age and sex is only significant when comparing the youngest and oldest cohorts (0.15\*), which shows that compared with men in the youngest cohort and those in their sixties or older, there is a significant decrease in the likelihood of liking jazz (-0.26), whilst the age effect for women is more nuanced (-0.26+0.15=-0.11).
+
+The linear probability model yields results that are easier to interpret than the logistic regression model; for example, m2 gives us a coefficient of -0.1 for sex, which tells us that being female will decrease the probability of liking jazz by 10 percent. On the other hand, the results presented by the logistic models (m1) are more elusive as they are presented as logged odds and are not intuitive to understand.
+
+The linear probability model can be as accurate as the logistic model in predicting results when the probability of the binary dependent variable is not close to 0 or 1. However, if the true probability approximates 0 or 1, the predicted results by the linear probability model could be more biased, even generating the results of probabilities lie outside 0 and 1.
+
+3.If you could only present one figure or one table with a single model and single format to show the test of the hypotheses, what would you present? Explain why.
+
+```{r}
+Table1
+```
+
+The table I would like to present to test the interaction effect of age and sex in Table 2, as it uses the second difference to tell us exactly where, across the age range, there are significant gender differences in age effects. As seen in Table 1, the gender gap in the probability of liking jazz is only significant when we compare the youngest (18-32) and oldest (60+) cohort; it shows that only for this cohort the negative effect of age on liking jazz is significantly lower for women by the difference of 0.155\* in the average marginal effect of age.
+
+4\. Finally, on a different note, if your model for question 1) did not include income, test whether adding income to the model improves the model fit; if you already included income, test whether removing it gives a worse fit. Explain what model fit means in this context and how you make the comparison between models.
+
+```{r}
+#m1<-glm(jazz_n~ageq+sex+ageq*sex,data=gss_jazz,family = binomial(link="logit"))
+
+#log the income to make it normally distributed
+gss_jazz$income<-log(gss_jazz$income)
+m3<-glm(jazz_n~ageq+sex+ageq*sex+income,data=gss_jazz,family = binomial(link="logit"))
+
+#make the comparison between the full and nested models using the AIC, and BIC
+AIC(m1,m3)
+BIC(m1,m3)
+
+table4<-modelsummary(list("Model 3"=m3),fmt=2,statistic = "conf.int",conf_level = 0.95,exponentiate = T,stars = T,title="Model 3 presented in odds ratios")
+table4|>
+    kable_classic(full_width = F, html_font = "Cambria")
+```
+
+Using BIC to test the goodness-of-fit of model 3 (Table 4) after adding the logged income variable compared with model 1, it's shown that there is a relatively weak increase in model fit (BICm = 2157.457, BIC\*= 2156.052, Δ BIC\<2). 
+
+However, when using the more lenient AIC method, which imposes less penalty on adding new variables, the evidence supporting model 3 is moderately strong (AICm = 2114.699, AIC\*=2107.949, Δ AIC=6.75) (Fabozz et al.i, 2014)
+
+In short, we conclude there is moderate evidence supporting adding the logged income variable to model 1 increases the model fit.
+
+```{r}
+rm(d1,d2,d3,d4,d5,d6,dat,design,m1_new,design_new,lpdm,lpdmp,pdm,jazz,p1,dat)
+```
+
+## SECTION A2
+
+Some people are more worried about climate change than others. There seems to be **an association between educational attainment and level of worrying about climate change**. In climatesurvey.cvs you find data from a 2020 UK survey (part of ESS) that allows you to assess **to what extent there is an educational gradient in worrying about climate change**. Furthermore, it contains data to assess **to what extent educational differences are mediated by trust in science, generalized trust, political left/right position, religiosity, and internet use**. There are also some **socio-demographic variables**
+
+1.  Is there an **educational difference in worrying about climate change**? To answer this question estimate a **logistic regression model that also takes into account age and gender**. Present and discuss the results.
+
+```{r}
+#look at the distribution of the variables
+summary(climatesurvey)
+table(is.na(climatesurvey))
+
+#build a logistic regression model 
+m4<-glm(worried~degree+age+female,data=climatesurvey,family = binomial(link="logit"))
+
+table5<-modelsummary(list("Model 4"=m4),fmt=2,statistic = "conf.int",conf_level = 0.95,exponentiate = T,stars = T,title="Model 4 Presented in Odds ratios")
+```
+
+Table 5 summarizes the model built in odds ratios. As seen in the table we know that having a degree will increase the odd worrying about climate (2.22\*\*\*). Additionally, being female also predicts higher odds of concerning about climate change (1.42\*). Age shows no significant effect regrading the relevant concerns.
+
+2.  Estimate a second model with mediators and compare it to the model without mediators. Think carefully about your choice of model. Explain the rationale for your approach. Present and discuss the results. What do you conclude about the contribution of the mediators?
+
+```{r}
+#assess to what extent educational differences are mediated by trust in science, generalized trust, political left/right position, religiosity, and internet use. There are also some socio-demographic variables
+
+m5<-glm(worried~degree+age+female+trstsci+lrscale,data=climatesurvey,family = binomial(link="logit"))
+
+```
+
+The second model only includes variables for trusting scientists and left-right scale as mediators after model selection. The model selection rationale is backward elimination, which begins by adding all mediators possible to the model and exclude one variable which has the largest p-value at a time. The final model will only include mediators that have significant contributions to the results when controlling other variables.
+
+In examine the contribution of the mediators, we use the khb method as even the new mediators added do not explain the effect of the variables already in the model (degree, age, and female) , the coefficient of those variables will change as the total variance of logistic regression is fixed.
+
+```{r}
+#using the khb method to compare coeffient between the full and adjusted models
+khb<-khb(m4,m5)
+print(khb,type="models")
+print(khb,disentangle=T)
+
+##adding trstsci
+m5_lrscale<-glm(worried~degree+age+female+trstsci,data=climatesurvey,family = binomial(link="logit"))
+khb1<-khb(m4,m5_lrscale)
+print(khb1,type="models")
+print(khb1,disentangle=T)
+
+##adding lrscale
+m5_lrscale<-glm(worried~degree+age+female+lrscale,data=climatesurvey,family = binomial(link="logit"))
+khb2<-khb(m4,m5_lrscale)
+print(khb2,type="models")
+print(khb2,disentangle=T)
+
+#create a table to demonstrate the khb analysis results
+convertModel <- function(model) {
+  tr <- createTexreg(
+    coef.names = names(model$coef), 
+    coef = as.numeric(summary(model)$coefficients[,1]), 
+    se = as.numeric(summary(model)$coefficients[,2]), 
+    pvalues = as.numeric(summary(model)$coefficients[,4]),
+    gof.names = c("N","AIC"), 
+    gof = c(nobs(model),AIC(model)), 
+    gof.decimal = c(F,F)
+
+  )
+}
+table6<-htmlreg(lapply(list(khb$reduced,khb$adjusted,khb$full), convertModel),file="khb.html",custom.model.names = c("Reduced", "Adjusted","Full"),caption="KHB test for adding mediators", 
+        caption.above = TRUE)
+
+dat1<-as.data.frame(khb$key$degree$detail)
+dat2<-as.data.frame(khb$key$age$detail)
+dat3<-as.data.frame(khb$key$female$detail)
+
+dat<-cbind(dat1,dat2,dat3)
+
+```
+
+As seen in the khb analysis results, adding the variables related to trusting scientists or being on the political left-right spectrum makes the effects of education and age being stronger (still age do not significantly contribute to the results), besides, lrscale also partly contributes to the increase in coefficient magnitude of sex.
+
+This may be explained as there are some suppressor effects exist in the model, and because people who are highly-educated, being younger or being female are more likely to self-select into the political left-right spectrum or have the same attitudes towards scientists, the effects of these variables are compromised if we don't add the relevant mediators.
+
+3.  Present the results of your model from question 2) (ie the one with mediators) as marginal effects. Choose between average marginal effects and marginal effects at the mean. Explain what the difference is between these two types of marginal effects and motivate your choice. Discuss the results.
+
+    ```{r}
+    AME<-avg_slopes(m5, by = TRUE)
+    summary(AME)
+
+    ame<-AME%>%dplyr::select(term,contrast,estimate,std.error,p.value)
+    table7<-kbl(ame, align = "c") %>%
+      kable_classic(full_width = F, html_font = "Cambria") 
+    ```
+
+Average marginal effects (AMEs) set all covariates at their original values, whilst marginal effects at the mean set all covariates at their means. In this case we prefer using the average marginal effects as it is easier for interpretation: it can be interpreted as the effect of changing one unit of x on average across all observations.
+
+As seen in Table 7 for the summarizing AMEs, education (measured by having a degree or not) has an average marginal effect of 0.13 on the probability of worrying about climate change. Similarly, an unit increase on the political right scale has an average marginal effect of -0.04, and an unit increase in the scale for trusting scientists has an average marginal effect of 0.04 on the probability of having concerns about climate.
+
+# Section B – Multilevel and panel models
+
+## SECTION B1
+
+There is a long-standing debate in social sciences about the effect of **family background and school type on pupils academic outcomes**. For B1, use the information on pupils’ **math tests, familybackground, and school type** in schoolsdata.csv to shed some light on this debate.
+
+1.  What is the total variance of the math test results? Explain what this variance means.
+
+```{r}
+
+```
+
+2.  Calculate the ICC for an “empty” or “null model”. Explain what the ICC is, how you calculateit, and discuss its interpretation.
+
+    ```{r}
+
+    ```
+
+    3.  Run a random intercepts model and plot the distribution of the varying intercepts. Discussthe plot.
+
+        ```{r}
+
+        ```
+
+    4.  Compare the simple mean of the variable mathtest in the data to the intercept (γ00) of yourempty model with varying intercepts. Explain the difference/similarity
+
+        ```{r}
+
+        ```
+
+    5.  Is there any evidence that **religious schools have better test results because they attract pupils with more privileged socio-economic and socio-demographic backgrounds**? Address this question with any variables and models you like. Explain your approach and choices. If you **manipulate any of the variables, be sure to explain what you have done and why you have done so**.
+
+        ```{r}
+
+        ```
+
+    6.  Another idea in the literature is that **religious schools might benefit from a higher level of social capital and that social capital helps to weaken the link between socioeconomic background and academic performance**. Test this hypothesis. Explain your approach and thesteps you have taken to test the hypothesis.
+
+        ```{r}
+
+        ```
+
+# Section C – Quasi-experimental designs
+
+## PART C1
+
+In observational studies, people who **commute to work by bicycle report better health than those who commute by car or public transport**. Some people claim this shows that **active travel has positive health effects. Others are sceptical about the strength of the evidence**. A researcher proposes to use **a recent Labour Force Survey (LFS) to examine the health effect of cycling to work**. The LFS consists of a representative sample of **employees and records their selfassessed health as well as information about commuting**. It also contains information about **the employer (through data linkage with HMRC, the tax office)**. One piece of information is whether the **company has voluntarily chosen to subscribe to the cycle-to-work scheme. Under this scheme employees can buy a new bicycle (for commuting purposes) using their pre-tax income**. This **means that employees get a 20-40% discount on the bike purchase (depending on which tax rate they pay)**.The government hopes to **incentivise more people to cycle by providing this tax break**.The researcher’s dataset LFS.Rdata (not included!) looks like this:
+
+1)  The researcher used LFS.RData and ran an OLS regression with pcs-health as the dependentvariable and a dummy-variable for commuting by bicycle as the independent variable. They alsoincluded age, gender, and company industry. Why might we worry about interpreting the coefficientof bike commuting as a causal effect?
+
+```{=html}
+<!-- -->
+```
+2)  Next the researcher used the company’s participation in the cycle-to-work scheme as aninstrumental variable. What may have been their arguments for this IV?
+
+3)  They then ran a 2SLS instrumental variable model. Describe what the first stage of this 2SLs approach entails. What would you like the researcher to report about this stage? Explain why and how you would evaluate this stage.
+
+4)  Describe what happens in the second stage. What would you like the researcher to report aboutthis stage? Why? How would you evaluate the results?
+
+5)  Describe the four sub-populations of always takers, never takers, defiers, and compliers in thecontext of the resarcher’s approach.
+
+6)  Are you convinced by this instrument? Explain.
+
+## PART C2
+
+We are interested in the **effect on hourly wages of doing a company internship as part of a vocational college degree program**. We have information on more than **700 former pupils** from **three cohorts of a vocational college**. Comparing the wages of those who did and did not do an internship might give us biased results because **other factors may influence both doing an internship and getting higher wages. Motivation and social skills, for example, could be (unobserved) factors that could increase wages and make an internship more likely**. Because of the high demand for internships and a shortage of company placements, **pupils had to achieve a gpa of at least 70 in the first years to enter the intership programme in year 3. This rule might enable to use a regression discontinuity design to estimate the effect of doing an internship**. Using the above information and the data, answer the following questions:
+
+1.  What kind of RDD can we run in this case, Sharp or Fuzzy? Explain the difference between thetwo and show what information you used to decide between them in this case.
+2.  Is there evidence of manipulation? Explain how you have investigated this.
+3.  Run an RDD model. Explain your approach and present the results. To what extent does your conclusion depend on your choices about the model and the bandwidth? Explain your choicesand discuss your conclusions.
