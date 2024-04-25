@@ -39,6 +39,12 @@ library(reshape2)
 library(kableExtra)
 library(lmtest)
 library(rowr)
+library(broom)
+library(broom.mixed)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(plm)
 ```
 
 ```{r}
@@ -259,7 +265,7 @@ However, when using the more lenient AIC method, which imposes less penalty on a
 In short, we conclude there is moderate evidence supporting adding the logged income variable to model 1 increases the model fit.
 
 ```{r}
-rm(d1,d2,d3,d4,d5,d6,dat,design,m1_new,design_new,lpdm,lpdmp,pdm,jazz,p1,dat)
+rm(d1,d2,d3,d4,d5,d6,dat,design,m1_new,f1,f2,f3,f4,design_new,lpdm,lpdmp,pdm,jazz,p1,dat)
 ```
 
 ## SECTION A2
@@ -301,8 +307,8 @@ print(khb,type="models")
 print(khb,disentangle=T)
 
 ##adding trstsci
-m5_lrscale<-glm(worried~degree+age+female+trstsci,data=climatesurvey,family = binomial(link="logit"))
-khb1<-khb(m4,m5_lrscale)
+m5_trstsci<-glm(worried~degree+age+female+trstsci,data=climatesurvey,family = binomial(link="logit"))
+khb1<-khb(m4,m5_trstsci)
 print(khb1,type="models")
 print(khb1,disentangle=T)
 
@@ -331,9 +337,15 @@ table6<-htmlreg(lapply(list(khb$reduced,khb$adjusted,khb$full), convertModel),fi
 dat1<-as.data.frame(khb$key$degree$detail)
 dat2<-as.data.frame(khb$key$age$detail)
 dat3<-as.data.frame(khb$key$female$detail)
+dat<-rbind(dat1,dat2,dat3)
+is.num <- sapply(dat, is.numeric)
+dat[is.num] <- lapply(dat[is.num], round, 2)
 
-dat<-cbind(dat1,dat2,dat3)
-
+table7<-kbl(dat,caption = "Test the change in Beta: Decomposition of the difference ")%>%
+kable_classic(full_width = F, html_font = "Cambria")%>%
+pack_rows("degree ",1,3)%>%
+pack_rows("age ",4,6)%>%
+        pack_rows("female ",7,9)
 ```
 
 As seen in the khb analysis results, adding the variables related to trusting scientists or being on the political left-right spectrum makes the effects of education and age being stronger (still age do not significantly contribute to the results), besides, lrscale also partly contributes to the increase in coefficient magnitude of sex.
@@ -347,55 +359,369 @@ This may be explained as there are some suppressor effects exist in the model, a
     summary(AME)
 
     ame<-AME%>%dplyr::select(term,contrast,estimate,std.error,p.value)
+    is.num <- sapply(ame, is.numeric)
+    ame[is.num] <- lapply(ame[is.num], round, 2)
+
     table7<-kbl(ame, align = "c") %>%
       kable_classic(full_width = F, html_font = "Cambria") 
     ```
 
 Average marginal effects (AMEs) set all covariates at their original values, whilst marginal effects at the mean set all covariates at their means. In this case we prefer using the average marginal effects as it is easier for interpretation: it can be interpreted as the effect of changing one unit of x on average across all observations.
 
-As seen in Table 7 for the summarizing AMEs, education (measured by having a degree or not) has an average marginal effect of 0.13 on the probability of worrying about climate change. Similarly, an unit increase on the political right scale has an average marginal effect of -0.04, and an unit increase in the scale for trusting scientists has an average marginal effect of 0.04 on the probability of having concerns about climate.
+As seen in Table 7 for the summarizing AMEs, education (measured by having a degree or not) has an average marginal effect of 0.13 on the probability of worrying about climate change. Similarly, a unit increase on the political right scale has an average marginal effect of -0.04, and an unit increase in the scale for trusting scientists has an average marginal effect of 0.04 on the probability of having concerns about climate.
+
+```{r}
+rm(ame,AME,dat1,dat2,dat3,khb,khb1,khb2,m5_trstsci,m5_lrscale,is.num)
+
+```
 
 # Section B – Multilevel and panel models
 
 ## SECTION B1
 
-There is a long-standing debate in social sciences about the effect of **family background and school type on pupils academic outcomes**. For B1, use the information on pupils’ **math tests, familybackground, and school type** in schoolsdata.csv to shed some light on this debate.
+There is a long-standing debate in social sciences about the effect of **family background and school type on pupils academic outcomes**. For B1, use the information on pupils’ **math tests, family background, and school type** in schoolsdata.csv to shed some light on this debate.
 
-1.  What is the total variance of the math test results? Explain what this variance means.
+1\) What is the total variance of the math test results? Explain what this variance means.
+
+```{r}
+#explore the data
+summary(schoolsdata)
+table(is.na(schoolsdata))
+
+#scale the ses variable by mean
+schoolsdata$ses<-schoolsdata$ses-mean(schoolsdata$ses,na.rm=T)
+#make schoolid a factor
+
+
+#check the number of unique student id in data 48
+n_distinct(schoolsdata$pupilid)
+
+#check the number of schools 149
+n_distinct(schoolsdata$schoolid)
+```
+
+```{r}
+#check what kind of variation of maths score we have across schools
+schoolsdata%>%dplyr::group_by(schoolid)%>%dplyr::summarise(mean=mean(mathtest,na.rm=T),
+                  SD=sd(mathtest,na.rm=T))%>%print(n=50)
+```
+
+It seems that there is substantial variation of math score between schools, which suggests that we could use a multi-level model
+
+```{r}
+#build an empty model
+m6<-lmer(mathtest~1+(1|schoolid),data=schoolsdata)
+summary(m6)
+```
+
+Total variance is the sum of the within group variance and between group variance. In this case it's the sum of the variance of math test results within each school and between schools (39.63+8.58=48.21).
+
+2\) Calculate the ICC for an “empty” or “null model”. Explain what the ICC is, how you calculate
+it, and discuss its interpretation.
+
+```{r}
+#calculate the ICC
+vcov<-as.data.frame(VarCorr(m6))
+vcov[1,4]/(vcov[1,4]+vcov[2,4])
+```
+
+The ICC (intraclass correlation) calculated from the empty model is 0.178. We can say that 17.8% of the variation of math score happens at the level of schools in which the student studies, and 82.2% of the math score variation is on account for students themselves.
+
+ICC can be interpreted as the percentage of total variance that is found at the group level, or the correlation between the two randomly selected students' math scores in a randomly selected school.
+
+3\) Run a random intercepts model and plot the distribution of the varying intercepts. **Discuss
+the plot**.
+
+```{r}
+#build a random intercepts model
+m7<-lmer(mathtest~1+ses+(1|schoolid),data=schoolsdata)
+summary(m7)
+
+#ICC
+vcov<-as.data.frame(VarCorr(m7))
+vcov[1,4]/(vcov[1,4]+vcov[2,4])
+
+#plot the distribution of the varying intercepts
+schoolsdata$pred1<-predict(m7)
+
+schoolsdata$schoolid<-factor(schoolsdata$schoolid)
+
+#plot varying intercepts
+figure3<-ggplot(data=schoolsdata[1:1000,],
+       aes(ses,pred1,color=schoolid,group=schoolid))+
+        geom_smooth(se=F,method = lm)+
+        theme_bw()+
+        labs(x="Parental SES",y="Mathematical Scores",color="School")
+
+#using qqmath command to divide the schools into quartiles, each dot represents a school, with its own CI
+figure4<-qqmath(ranef(m7,condVar=T))
+
+table8<-tab_model(list(m6,m7),show.se=T,show.r2=F,dv.labels = c("Model 6(mathtest)", "Model 7(mathtest)"))
+```
+
+The results of model 7 shows that as ses increases by 1, the expected math score increases by 1.69 points.
+
+The random effects in model 7 (4.32, 37.4) are slightly smaller than model 6 (8.58, 39.63), implicating that parental ses explains some variation of math test results at both the student and school levels. The ICC for model 7 (0.104) dropped compared with model 6 (0.178), suggesting that the percentage of math scores' variations explained at the school level decline when we consider parental ses.
+
+Concerning the plots, Figure 3 shows us intuitively that the intercepts for model 7 varying at the school level, Figure 4 which divides schools into quartiles and presents their means and confidence intervals shows lots of points are not touching 0, indicating that school level contributes much to the math test results.
+
+4) Compare the simple mean of the variable mathtest in the data to the intercept (γ00) of your
+empty model with varying intercepts. Explain the difference/similarity.
+
+```{r}
+mean(schoolsdata$mathtest)
+summary(m6)
+```
+
+The grand mean of the variable mathtest in the data is 16.38, while the intercept (γ00) for the empty model is 16.33. The grand mean is the school means of math scores weighted by their sizes, but it ignores the ICC, namely the dependence at the school level.
+
+If we set ICC=1, the mean figure will be even smaller, and γ00 in a random intercept model always lies between the simple mean and mean if ICC=1, as the random intercept model weights school means by its variances.
+
+To conclude, γ00 in a random intercept model considers both the school sizes and the variation at the school level, as it assumes the sample is randomly drawn from the population of schools' means. In contrast, grand mean only consider the school sizes.
+
+5) Is there any evidence that **religious schools have better test results because they attract
+pupils with more privileged socio-economic and socio-demographic backgrounds**? Address
+this question with any variables and models you like. Explain your approach and choices. If
+you manipulate any of the variables, be sure to explain what you have done and why you
+have done so.
+
+```{r}
+#select the appropriate variables for analysis
+#add group-level variable: religiousschool (between-group)
+m8<-lmer(mathtest~1+ses+religiousschool+(1|schoolid),data=schoolsdata)
+summary(m8)
+lrtest(m7,m8)
+
+#add ethnicminority
+m9<-lmer(mathtest~1+ses+religiousschool+ethnicminority+(1|schoolid),data=schoolsdata)
+summary(m8)
+lrtest(m8,m9)
+
+#add singleparent
+m10<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+(1|schoolid),data=schoolsdata)
+summary(m10)
+lrtest(m9,m10)
+
+#add female
+m11<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+(1|schoolid),data=schoolsdata)
+summary(m11)
+lrtest(m10,m11)
+
+#add group-level variable: avgses (between-group)
+m12<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+(1|schoolid),data=schoolsdata)
+summary(m12)
+lrtest(m11,m12)
+
+#add group-level variable:ses_centered (within-group) no significant improvements in model fit
+m13<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+ses_centered+(1|schoolid),data=schoolsdata)
+summary(m13)
+lrtest(m12,m13)
+
+#add varying slopes: ses no significant improvements in model fit
+m14<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+(1+ses|schoolid),data=schoolsdata)
+summary(m12)
+lrtest(m12,m14)
+
+#add varying slopes: religiousschool no significant improvements in model fit
+m15<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+(1+religiousschool|schoolid),data=schoolsdata)
+summary(m12)
+lrtest(m12,m15)
+
+#compare only adding ses_centered and only adding avgses
+m16<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+ses_centered+(1|schoolid),data=schoolsdata)
+summary(m16)
+lrtest(m12,m16)
+
+rm(m8,m9,m10,m11,m12,m13,m14,m15,m16)
+
+```
+
+```{r}
+#build model 8 as a baseline model for comparison (without any ses variables)
+m8<-lmer(mathtest~1+religiousschool+ethnicminority+singleparent+female+(1|schoolid),data=schoolsdata)
+summary(m8)
+
+#percentage of schools that are religious: 45.86% 
+schoolsdata%>%dplyr::count(religiousschool)%>%
+        dplyr::mutate(prop=n/sum(n))
+
+#mean of math scores in religious schools: 17.8
+mean(schoolsdata[schoolsdata$religiousschool==1,"mathtest"],na.rm=T)
+
+#mean of math scores in not religious schools: 15.18
+mean(schoolsdata[schoolsdata$religiousschool==0,"mathtest"],na.rm=T)
+
+#difference: 2.62
+mean(schoolsdata[schoolsdata$religiousschool==1,"mathtest"],na.rm=T)-mean(schoolsdata[schoolsdata$religiousschool==0,"mathtest"],na.rm=T)
+```
+
+After model selection using the likelihood ratio test by comparing each alternative model after adding a new variable or random slope, the final model for analysis is presented as model 8. We deliberately exclude all variables related to students' SES in model 8 as we want to analyze the mediation effect.
+
+Some exploration of the data concerning religious schools shows that there are 45.86% of schools in the sample which are religious, and the students in religious schools achieve in average a higher math score by 2.62 compared with those in non-religious schools.
+
+To study whether religious schools attract pupils with more privileged socio-economic and socio-demographic backgrounds, we add all variables related to students' SES in model 9 to estimate the mediation effect of SES on school stypes.
+
+```{r}
+#build model 9 with all variables related to ses
+m9<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+ses_centered+(1|schoolid),data=schoolsdata)
+summary(m9)
+lrtest(m8,m9)
+
+table9<-tab_model(list(m8,m9),show.se=T,show.r2=F,dv.labels = c("Model 8(mathtest)", "Model 9(mathtest)"))
+```
+
+The result of model 8 and model 9 shows that after adding variables related to students' SES to the model, the coefficient for the variable religiousschool drops sharply (from 2.62 to 1.37). A simple Z-test to test the difference between these two coeffients has a p-value \< 0.01. An likelihood ratio test conducted to compare model 8 and model 9 shows model 9 fits significantly better than model 8 (p\<0.001).
+
+To conclude, the data lend some evidence that students' SES tend to mediate the effect of religious schools on higher math scores, which suggests religious schools tend to attract students from higher-SES backgrounds and thus achieve higher students' math scores on average.
+
+However, because of unequal weightings of group size in the multi-level models, this mediation test should be interpreted with cautious.
+
+6) Another idea in the literature is that religious schools might benefit from a higher level of
+social capital and that social capital helps to weaken the link between socioeconomic
+background and academic performance. Test this hypothesis. Explain your approach and the
+steps you have taken to test the hypothesis.
+
+To study the impact of SES is different in religious and non-religious schools, we construct a interaction term of whether the school is religious and the students' ses centered within the school (religiousXses), and adding it to model 9 (model 10).
+
+```{r}
+#construct the interaction term religiousXses
+schoolsdata$religiousXses<-schoolsdata$religiousschool*schoolsdata$ses_centered
+
+m10<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+ses_centered+religiousXses+(1|schoolid),data=schoolsdata)
+
+summary(m10)
+lrtest(m9,m10)
+
+table10<-tab_model(list(m10),show.se=T,show.r2=F,dv.labels = c("Model 10(mathtest)"))
+```
+
+The regression results of model 10 shows that the average effect of an unit increase in students' SES on math score is 1.36-0.48=0.88 in the religious schools compared with non-religious ones (1.36), and the coefficient for the interaction term religiousXses is significant at the 0.01 level.
+
+This suggests students' math scores are less influenced by their SES compared with their classmates in the religious schools, which is correspond to the hypothesis. An likelihood ratio test for model 9 and model 10 provides evidence that model 10 is superior than model 9 without the interaction term (p-value=0.01).
+
+In sum, the analysis results provide relatively solid evidence for the hypothesis that students' math scores in religious schools are less affected by their relative SES compared with their classmates, which is probably due to religious schools' higher level of social capital.
+
+```{r}
+rm(vcov)
+```
+
+## SECTION B2
+
+For this question please use selected cases from the US National Longitudinal Survey of Youth - 1997
+cohort study. This longitudinal study **follows the lives of a sample of Americans born between 1980
+and 1984**. Our **subsample contains waves since the respondents were 18**. The **last wave included is
+from 2011**. A small selection of variables is included in nlsy18plus_selection.csv. Answer the
+following questions:
+
+1. Use the **plm package** to estimate a **“between” panel model regressing household income on
+being married** (no other variables in the model). **Interpret the outcome** of this regression.
+
+```{r}
+#exploring the data
+table(is.na(nlsy18))
+summary(nlsy18)
+
+#how many individuals and years in the data: 4964, 14
+n_distinct(nlsy18$caseid)
+
+n_distinct(nlsy18$year)
+
+#view the distirbution of the variable year
+hist(nlsy18$year)
+
+#check if it's a balanced panel (not balanced)
+is.pbalanced(nlsy18)
+```
+
+The data has cases of 4964 persons nested in 14 years, and is not balanced, which means the times of individuals being observed vary from case to case.
+
+```{r}
+#cleaning the data and select only the relevant variables
+nlsy1<-nlsy18%>%dplyr::select(caseid,year,ghhinc10_,married)
+
+table(is.na(nlsy1))
+
+#make income easier to interpret by dividing it by 1000
+nlsy1$ghhinc10_<-nlsy1$ghhinc10_/1000
+
+```
+
+```{r}
+#using the plm package to build the "between" panel model
+m11<-plm(ghhinc10_~married,
+         index="caseid",
+         data=nlsy1,
+         model="between")
+summary(m11)
+```
+
+The analysis results of the between panel model (model 11) demonstrate that when comparing between individuals, when one is married then his or her income will be 4.78 units higher (one unit = 1000) than other individuals on average.
+
+2. Still **using plm**, estimate the **“within” panel model** again **regressing household income on being
+married**. Present and interpret the results.
+
+```{r}
+#using the plm package to build the "within" panel model
+m12<-plm(ghhinc10_~married,
+         index="caseid",
+         data=nlsy1,
+         model="within")
+summary(m12)
+
+```
+
+The analysis results of the between panel model (model 12) demonstrate that when the same individual becomes married then that individual's income is 7.7 units (1 unit = 1000) higher compared to their average income earn across all survey periods they are observed.
+
+3\. Explain **what the difference is between the models used in 1) and 2)**. **Compare the results of 1)
+and 2)** and **explain differences** if you observe any.
+
+```{r}
+summary(m11)
+summary(m12)
+4.78-7.7
+2.92/sqrt(0.86**2+2.08**2)
+```
+
+The difference between the within and between panel model is that the "within" panel model studies the changes within individuals and efficiently control for all time-constant variables, it compares each individual's observed against that individual's average value.
+
+In contrast, the "between" panel model studies the differences between individuals. It compares each individual against one another, and ignores the individual-level changes over time.
+
+The differences between the regressed results of model 11 and model 12 tell us that the association of being married and higher income may be stronger (7.7-4.78=2.92) when we study the changes of the same individuals instead of comparing across individuals. Nonetheless, we we conduct a simple Z-test of the differences between the two coefficients, the result is not significant (p-value\>0.01), thus we cannot surely conclude there exists a difference.
+
+4\. **How many respondents** are there in the sample? How do **different respondents contribute to
+the estimates you find in 2)**? Do they **all contribute something**?
+
+```{r}
+#how many individuals in the data: 4964
+n_distinct(nlsy1$caseid)
+
+#count the number of respondents who contribute to model 12
+dat<-dat<-as.data.frame(nlsy1%>%dplyr::group_by(caseid,married)%>%dplyr::count(married))
+
+dat2<-dat%>%dplyr::group_by(caseid)%>%dplyr::summarise(change=length(married))
+prop.table(table(dat2$change))
+
+#select only those id who have changed in marital status
+dat3<-dat2[which(dat2$change==2),]
+changedid<-as.vector(dat3$caseid)
+changedid<-nlsy1[nlsy1$caseid%in%changedid,]
+#change in mean income when getting married for different individuals
+changedid<-as.data.frame(changedid%>%dplyr::group_by(caseid,married)%>%dplyr::summarise(meanincome=mean(ghhinc10_)))
+
+table13<-kbl(changedid[1:10,], align = "c",caption = "Recreating booktabs style table") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+The number of respondents in the data is 4964, the proportion of respondents who contribute to the estimates in model 12 is 43.4% (who have change at least one time in marital status). Even though most of the individuals have higher income when get married, there are some
+
+5. Test the hypothesis that the **association between becoming a parent and psychological distress
+is not the same for men and women**. You can add other variables to the model as you please.
+**You can use any package but plm is recommended.** Explain your **choices** and **how you have come
+to your conclusion** about the hypothesis.
 
 ```{r}
 
 ```
-
-2.  Calculate the ICC for an “empty” or “null model”. Explain what the ICC is, how you calculateit, and discuss its interpretation.
-
-    ```{r}
-
-    ```
-
-    3.  Run a random intercepts model and plot the distribution of the varying intercepts. Discussthe plot.
-
-        ```{r}
-
-        ```
-
-    4.  Compare the simple mean of the variable mathtest in the data to the intercept (γ00) of yourempty model with varying intercepts. Explain the difference/similarity
-
-        ```{r}
-
-        ```
-
-    5.  Is there any evidence that **religious schools have better test results because they attract pupils with more privileged socio-economic and socio-demographic backgrounds**? Address this question with any variables and models you like. Explain your approach and choices. If you **manipulate any of the variables, be sure to explain what you have done and why you have done so**.
-
-        ```{r}
-
-        ```
-
-    6.  Another idea in the literature is that **religious schools might benefit from a higher level of social capital and that social capital helps to weaken the link between socioeconomic background and academic performance**. Test this hypothesis. Explain your approach and thesteps you have taken to test the hypothesis.
-
-        ```{r}
-
-        ```
 
 # Section C – Quasi-experimental designs
 
