@@ -45,6 +45,9 @@ library(lme4)
 library(lmerTest)
 library(sjPlot)
 library(plm)
+library(estimatr)
+library(rdrobust)
+library(rddensity)
 ```
 
 ```{r}
@@ -59,13 +62,11 @@ load("D:\\r git projects\\ox-R\\AQM\\gss_jazz.RData")
 
 # Section A – OLS and logistic regression
 
-## SECTION A1 
+## SECTION A1
 
 For this question, you need to load the dataframe in gss_jazz.RData. These data come from the 1993round of the US General Social Survey (gss website). For more information, you can consult the1972-2022 cumulative codebook (3800 pages!) and data documentation on the website, but theyare not necessary for the completion of this question.Imagine you are a sociologist interested in cultural consumption and taste differences, who wants toknow if **there is an age difference in liking or not liking jazz**. You are asked to evaluate the **hypothesis that the association between age and liking jazz is different for men and women**.
 
-1.Test the hypothesis with a logistic regression model and present the results in three ways: **logit
-coefficients**, **odds ratios**, and **predicted probabilities**. Explain how you test the hypothesis. Discuss
-and explain the results
+1.Test the hypothesis with a logistic regression model and present the results in three ways: **logit coefficients**, **odds ratios**, and **predicted probabilities**. Explain how you test the hypothesis. Discuss and explain the results
 
 To better test the interaction effects in the logistic regression, we will use the Mize's (2019) method of marginal effects and test of second differences because it answers what the effect of age on average for males or females on liking jazz and inform us where across the age range there are significant gender differences in age effects.
 
@@ -388,7 +389,7 @@ There is a long-standing debate in social sciences about the effect of **family 
 summary(schoolsdata)
 table(is.na(schoolsdata))
 
-#scale the ses variable by mean
+#scale the ses variable by its grand mean
 schoolsdata$ses<-schoolsdata$ses-mean(schoolsdata$ses,na.rm=T)
 #make schoolid a factor
 
@@ -406,7 +407,7 @@ schoolsdata%>%dplyr::group_by(schoolid)%>%dplyr::summarise(mean=mean(mathtest,na
                   SD=sd(mathtest,na.rm=T))%>%print(n=50)
 ```
 
-It seems that there is substantial variation of math score between schools, which suggests that we could use a multi-level model
+There seems to be substantial variation in math scores between schools, which suggests that we could use a multi-level model.
 
 ```{r}
 #build an empty model
@@ -414,10 +415,9 @@ m6<-lmer(mathtest~1+(1|schoolid),data=schoolsdata)
 summary(m6)
 ```
 
-Total variance is the sum of the within group variance and between group variance. In this case it's the sum of the variance of math test results within each school and between schools (39.63+8.58=48.21).
+The total variance is the sum of the within-group variance and between-group variance. In this case, it's the sum of the variance of math test results within each school and between schools (39.63+8.58=48.21).
 
-2\) Calculate the ICC for an “empty” or “null model”. Explain what the ICC is, how you calculate
-it, and discuss its interpretation.
+2\) Calculate the ICC for an “empty” or “null model”. Explain what the ICC is, how you calculate it, and discuss its interpretation.
 
 ```{r}
 #calculate the ICC
@@ -425,12 +425,11 @@ vcov<-as.data.frame(VarCorr(m6))
 vcov[1,4]/(vcov[1,4]+vcov[2,4])
 ```
 
-The ICC (intraclass correlation) calculated from the empty model is 0.178. We can say that 17.8% of the variation of math score happens at the level of schools in which the student studies, and 82.2% of the math score variation is on account for students themselves.
+The ICC (intraclass correlation) calculated from the empty model is 0.178. We can say that 17.8% of the variation in math scores happens at the level of schools in which the student studies, and 82.2% of the math score variation is on account of students themselves.
 
-ICC can be interpreted as the percentage of total variance that is found at the group level, or the correlation between the two randomly selected students' math scores in a randomly selected school.
+ICC can be interpreted as the percentage of total variance that is found at the group level, or the correlation between the two randomly selected students' math scores in a randomly selected school.
 
-3\) Run a random intercepts model and plot the distribution of the varying intercepts. **Discuss
-the plot**.
+3\) Run a random intercepts model and plot the distribution of the varying intercepts. **Discuss the plot**.
 
 ```{r}
 #build a random intercepts model
@@ -459,14 +458,13 @@ figure4<-qqmath(ranef(m7,condVar=T))
 table8<-tab_model(list(m6,m7),show.se=T,show.r2=F,dv.labels = c("Model 6(mathtest)", "Model 7(mathtest)"))
 ```
 
-The results of model 7 shows that as ses increases by 1, the expected math score increases by 1.69 points.
+The results of model 7 show that as ses increases by 1, the expected math score increases by 1.69 points.
 
-The random effects in model 7 (4.32, 37.4) are slightly smaller than model 6 (8.58, 39.63), implicating that parental ses explains some variation of math test results at both the student and school levels. The ICC for model 7 (0.104) dropped compared with model 6 (0.178), suggesting that the percentage of math scores' variations explained at the school level decline when we consider parental ses.
+The random effects in model 7 (4.32, 37.4) are slightly smaller than those in model 6 (8.58, 39.63), suggesting that parental sessions explain some variation of math test results at both the student and school levels. The ICC for model 7 (0.104) dropped compared with model 6 (0.178), suggesting that the percentage of math scores' variations explained at the school level declines when we consider parental sessions.
 
-Concerning the plots, Figure 3 shows us intuitively that the intercepts for model 7 varying at the school level, Figure 4 which divides schools into quartiles and presents their means and confidence intervals shows lots of points are not touching 0, indicating that school level contributes much to the math test results.
+Concerning the plots, Figure 3 intuitively shows that the intercepts for model 7 vary at the school level. Figure 4, which divides schools into quartiles and presents their means and confidence intervals, shows lots of points not touching 0, indicating that the school level contributes much to the math test results.
 
-4) Compare the simple mean of the variable mathtest in the data to the intercept (γ00) of your
-empty model with varying intercepts. Explain the difference/similarity.
+4)  Compare the simple mean of the variable mathtest in the data to the intercept (γ00) of your empty model with varying intercepts. Explain the difference/similarity.
 
 ```{r}
 mean(schoolsdata$mathtest)
@@ -475,19 +473,15 @@ summary(m6)
 
 The grand mean of the variable mathtest in the data is 16.38, while the intercept (γ00) for the empty model is 16.33. The grand mean is the school means of math scores weighted by their sizes, but it ignores the ICC, namely the dependence at the school level.
 
-If we set ICC=1, the mean figure will be even smaller, and γ00 in a random intercept model always lies between the simple mean and mean if ICC=1, as the random intercept model weights school means by its variances.
+If we set ICC=1, the mean figure will be even smaller, and γ00 in a random intercept model always lies between the simple mean and mean if ICC=1, as the random intercept model weights school means by its variances.
 
-To conclude, γ00 in a random intercept model considers both the school sizes and the variation at the school level, as it assumes the sample is randomly drawn from the population of schools' means. In contrast, grand mean only consider the school sizes.
+To conclude, γ00 in a random intercept model considers both the school sizes and the variation at the school level, as it assumes the sample is randomly drawn from the population of schools' means. In contrast, the grand mean only considers the school sizes.
 
-5) Is there any evidence that **religious schools have better test results because they attract
-pupils with more privileged socio-economic and socio-demographic backgrounds**? Address
-this question with any variables and models you like. Explain your approach and choices. If
-you manipulate any of the variables, be sure to explain what you have done and why you
-have done so.
+5)  Is there any evidence that **religious schools have better test results because they attract pupils with more privileged socio-economic and socio-demographic backgrounds**? Address this question with any variables and models you like. Explain your approach and choices. If you manipulate any of the variables, be sure to explain what you have done and why you have done so.
 
 ```{r}
 #select the appropriate variables for analysis
-#add group-level variable: religiousschool (between-group)
+#add a group-level variable: religiousschool (between-group)
 m8<-lmer(mathtest~1+ses+religiousschool+(1|schoolid),data=schoolsdata)
 summary(m8)
 lrtest(m7,m8)
@@ -507,12 +501,12 @@ m11<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+(1|s
 summary(m11)
 lrtest(m10,m11)
 
-#add group-level variable: avgses (between-group)
+#add a group-level variable: avgses (between-group)
 m12<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+(1|schoolid),data=schoolsdata)
 summary(m12)
 lrtest(m11,m12)
 
-#add group-level variable:ses_centered (within-group) no significant improvements in model fit
+#add a group-level variable:ses_centered (within-group) no significant improvements in model fit
 m13<-lmer(mathtest~1+ses+religiousschool+ethnicminority+singleparent+female+avgses+ses_centered+(1|schoolid),data=schoolsdata)
 summary(m13)
 lrtest(m12,m13)
@@ -555,11 +549,11 @@ mean(schoolsdata[schoolsdata$religiousschool==0,"mathtest"],na.rm=T)
 mean(schoolsdata[schoolsdata$religiousschool==1,"mathtest"],na.rm=T)-mean(schoolsdata[schoolsdata$religiousschool==0,"mathtest"],na.rm=T)
 ```
 
-After model selection using the likelihood ratio test by comparing each alternative model after adding a new variable or random slope, the final model for analysis is presented as model 8. We deliberately exclude all variables related to students' SES in model 8 as we want to analyze the mediation effect.
+After model selection using the likelihood ratio test by comparing each alternative model after adding a new variable or random slope, the final model for analysis is presented as model 8. We deliberately excluded all variables related to students' SES in model 8 as we wanted to analyze the mediation effect.
 
-Some exploration of the data concerning religious schools shows that there are 45.86% of schools in the sample which are religious, and the students in religious schools achieve in average a higher math score by 2.62 compared with those in non-religious schools.
+Some exploration of the data concerning religious schools shows that there are 45.86% of schools in the sample which are religious, and the students in religious schools achieve in average a higher math score by 2.62 compared with those in non-religious schools.
 
-To study whether religious schools attract pupils with more privileged socio-economic and socio-demographic backgrounds, we add all variables related to students' SES in model 9 to estimate the mediation effect of SES on school stypes.
+To study whether religious schools attract pupils with more privileged socio-economic and socio-demographic backgrounds, we add all variables related to students' SES in model 9 to estimate the mediation effect of SES on school types.
 
 ```{r}
 #build model 9 with all variables related to ses
@@ -570,16 +564,13 @@ lrtest(m8,m9)
 table9<-tab_model(list(m8,m9),show.se=T,show.r2=F,dv.labels = c("Model 8(mathtest)", "Model 9(mathtest)"))
 ```
 
-The result of model 8 and model 9 shows that after adding variables related to students' SES to the model, the coefficient for the variable religiousschool drops sharply (from 2.62 to 1.37). A simple Z-test to test the difference between these two coeffients has a p-value \< 0.01. An likelihood ratio test conducted to compare model 8 and model 9 shows model 9 fits significantly better than model 8 (p\<0.001).
+The results of Model 8 and Model 9 show that after adding variables related to students' SES to the model, the coefficient for the variable religiousschool drops sharply (from 2.62 to 1.37). A simple Z-test to test the difference between these two coefficients has a p-value \< 0.01. A likelihood ratio test conducted to compare Model 8 and Model 9 shows that Model 9 fits significantly better than Model 8 (p\<0.001).
 
-To conclude, the data lend some evidence that students' SES tend to mediate the effect of religious schools on higher math scores, which suggests religious schools tend to attract students from higher-SES backgrounds and thus achieve higher students' math scores on average.
+To conclude, the data lend some evidence that students' SES tends to mediate the effect of religious schools on higher math scores. This suggests that religious schools tend to attract students from higher-SES backgrounds and thus achieve higher students' math scores on average.
 
-However, because of unequal weightings of group size in the multi-level models, this mediation test should be interpreted with cautious.
+However, because group size is given unequal weighting in the multi-level models, this mediation test should be interpreted cautiously.
 
-6) Another idea in the literature is that religious schools might benefit from a higher level of
-social capital and that social capital helps to weaken the link between socioeconomic
-background and academic performance. Test this hypothesis. Explain your approach and the
-steps you have taken to test the hypothesis.
+6)  Another idea in the literature is that religious schools might benefit from a higher level of social capital and that social capital helps to weaken the link between socioeconomic background and academic performance. Test this hypothesis. Explain your approach and the steps you have taken to test the hypothesis.
 
 To study the impact of SES is different in religious and non-religious schools, we construct a interaction term of whether the school is religious and the students' ses centered within the school (religiousXses), and adding it to model 9 (model 10).
 
@@ -595,9 +586,9 @@ lrtest(m9,m10)
 table10<-tab_model(list(m10),show.se=T,show.r2=F,dv.labels = c("Model 10(mathtest)"))
 ```
 
-The regression results of model 10 shows that the average effect of an unit increase in students' SES on math score is 1.36-0.48=0.88 in the religious schools compared with non-religious ones (1.36), and the coefficient for the interaction term religiousXses is significant at the 0.01 level.
+The regression results of model 10 (Table 10) show that the average effect of a unit increase in students' SES on math scores is 1.36-0.48=0.88 in the religious schools compared with non-religious ones (1.36), and the coefficient for the interaction term religious uses is significant at the 0.01 level.
 
-This suggests students' math scores are less influenced by their SES compared with their classmates in the religious schools, which is correspond to the hypothesis. An likelihood ratio test for model 9 and model 10 provides evidence that model 10 is superior than model 9 without the interaction term (p-value=0.01).
+This suggests students' math scores are less influenced by their SES compared with their classmates in religious schools, which corresponds to the hypothesis. A likelihood ratio test for model 9 and model 10 provides evidence that model 10 is superior to model 9 without the interaction term (p-value=0.01).
 
 In sum, the analysis results provide relatively solid evidence for the hypothesis that students' math scores in religious schools are less affected by their relative SES compared with their classmates, which is probably due to religious schools' higher level of social capital.
 
@@ -607,14 +598,9 @@ rm(vcov)
 
 ## SECTION B2
 
-For this question please use selected cases from the US National Longitudinal Survey of Youth - 1997
-cohort study. This longitudinal study **follows the lives of a sample of Americans born between 1980
-and 1984**. Our **subsample contains waves since the respondents were 18**. The **last wave included is
-from 2011**. A small selection of variables is included in nlsy18plus_selection.csv. Answer the
-following questions:
+For this question please use selected cases from the US National Longitudinal Survey of Youth - 1997 cohort study. This longitudinal study **follows the lives of a sample of Americans born between 1980 and 1984**. Our **subsample contains waves since the respondents were 18**. The **last wave included is from 2011**. A small selection of variables is included in nlsy18plus_selection.csv. Answer the following questions:
 
-1. Use the **plm package** to estimate a **“between” panel model regressing household income on
-being married** (no other variables in the model). **Interpret the outcome** of this regression.
+1.  Use the **plm package** to estimate a **“between” panel model regressing household income on being married** (no other variables in the model). **Interpret the outcome** of this regression.
 
 ```{r}
 #exploring the data
@@ -626,17 +612,17 @@ n_distinct(nlsy18$caseid)
 
 n_distinct(nlsy18$year)
 
-#view the distirbution of the variable year
+#view the distribution of the variable year
 hist(nlsy18$year)
 
 #check if it's a balanced panel (not balanced)
 is.pbalanced(nlsy18)
 ```
 
-The data has cases of 4964 persons nested in 14 years, and is not balanced, which means the times of individuals being observed vary from case to case.
+The data has cases of 4964 persons nested in 14 years and is not balanced, which means the times of individuals being observed vary from case to case.
 
 ```{r}
-#cleaning the data and select only the relevant variables
+#cleaning the data and selecting only the relevant variables
 nlsy1<-nlsy18%>%dplyr::select(caseid,year,ghhinc10_,married)
 
 table(is.na(nlsy1))
@@ -653,12 +639,16 @@ m11<-plm(ghhinc10_~married,
          data=nlsy1,
          model="between")
 summary(m11)
+
+
+table11<-modelsummary::msummary(list("Model 11 (between)" = m11), 
+stars = TRUE, statistic = c("p.value", 
+        "conf.int", "std.error"))
 ```
 
 The analysis results of the between panel model (model 11) demonstrate that when comparing between individuals, when one is married then his or her income will be 4.78 units higher (one unit = 1000) than other individuals on average.
 
-2. Still **using plm**, estimate the **“within” panel model** again **regressing household income on being
-married**. Present and interpret the results.
+2.  Still **using plm**, estimate the **“within” panel model** again **regressing household income on being married**. Present and interpret the results.
 
 ```{r}
 #using the plm package to build the "within" panel model
@@ -668,12 +658,17 @@ m12<-plm(ghhinc10_~married,
          model="within")
 summary(m12)
 
+#using the heteroskedasticity-robust standard errors
+m12$vcov <- plm::vcovHC(m12, type = "HC1")
+
+table12<-modelsummary::msummary(list("Model 12 (within)" = m12), 
+stars = TRUE, statistic = c("p.value", 
+        "conf.int", "std.error"))
 ```
 
-The analysis results of the between panel model (model 12) demonstrate that when the same individual becomes married then that individual's income is 7.7 units (1 unit = 1000) higher compared to their average income earn across all survey periods they are observed.
+The analysis results of the within panel model (model 12) demonstrate that when the same individual becomes married then that individual's income is 7.7 units (1 unit = 1000) higher compared to their average income earn across the survey periods observed when they are not married.
 
-3\. Explain **what the difference is between the models used in 1) and 2)**. **Compare the results of 1)
-and 2)** and **explain differences** if you observe any.
+3\. Explain **what the difference is between the models used in 1) and 2)**. **Compare the results of 1) and 2)** and **explain differences** if you observe any.
 
 ```{r}
 summary(m11)
@@ -682,17 +677,16 @@ summary(m12)
 2.92/sqrt(0.86**2+2.08**2)
 ```
 
-The difference between the within and between panel model is that the "within" panel model studies the changes within individuals and efficiently control for all time-constant variables, it compares each individual's observed against that individual's average value.
+The difference between the within and between panel model is that the "within" panel model studies the changes within individuals and efficiently controls for all time-constant variables.
 
-In contrast, the "between" panel model studies the differences between individuals. It compares each individual against one another, and ignores the individual-level changes over time.
+In contrast, the "between" panel model studies the differences between individuals. It compares each individual against one another and ignores the individual-level changes over time.
 
-The differences between the regressed results of model 11 and model 12 tell us that the association of being married and higher income may be stronger (7.7-4.78=2.92) when we study the changes of the same individuals instead of comparing across individuals. Nonetheless, we we conduct a simple Z-test of the differences between the two coefficients, the result is not significant (p-value\>0.01), thus we cannot surely conclude there exists a difference.
+The differences between the regressed results of model 11 and model 12 tell us that the association between being married and higher income may be stronger (7.7-4.78=2.92) when we study the changes of the same individuals instead of comparing across individuals. Nonetheless, we conducted a simple Z-test of the differences between the two coefficients, and the result was insignificant (p-value\>0.01). Thus, we cannot surely conclude there exists a difference.
 
-4\. **How many respondents** are there in the sample? How do **different respondents contribute to
-the estimates you find in 2)**? Do they **all contribute something**?
+4\. **How many respondents** are there in the sample? How do **different respondents contribute to the estimates you find in 2)**? Do they **all contribute something**?
 
 ```{r}
-#how many individuals in the data: 4964
+#how many individuals are in the data: 4964
 n_distinct(nlsy1$caseid)
 
 #count the number of respondents who contribute to model 12
@@ -707,47 +701,250 @@ changedid<-as.vector(dat3$caseid)
 changedid<-nlsy1[nlsy1$caseid%in%changedid,]
 #change in mean income when getting married for different individuals
 changedid<-as.data.frame(changedid%>%dplyr::group_by(caseid,married)%>%dplyr::summarise(meanincome=mean(ghhinc10_)))
+is.num <- sapply(changedid, is.numeric)
+changedid[is.num] <- lapply(changedid[is.num], round, 2)
 
-table13<-kbl(changedid[1:10,], align = "c",caption = "Recreating booktabs style table") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
+table13<-kbl(changedid[1:10,], align = "c") %>%kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-The number of respondents in the data is 4964, the proportion of respondents who contribute to the estimates in model 12 is 43.4% (who have change at least one time in marital status). Even though most of the individuals have higher income when get married, there are some
+The number of respondents in the data is 4964, and the proportion of respondents who contribute to the estimates in model 12 is 43.4% (who have changed at least one time in marital status). Even though most individuals have higher incomes when they get married, there are some cases that have observations contrary to this phenomenon. For instance, Table 13 shows that when getting married, the individual with caseid 25 has a lower average income compared with the time when he/she is not married (56.51-37.02=19.49). Moreover, we should note that changing from unmarried to married may have different indications on the income compared with changing from married to divorced for the same individual. Besides, the regressed result of model 2 is also heavily influenced by the cases with more variations in the data.
 
-5. Test the hypothesis that the **association between becoming a parent and psychological distress
-is not the same for men and women**. You can add other variables to the model as you please.
-**You can use any package but plm is recommended.** Explain your **choices** and **how you have come
-to your conclusion** about the hypothesis.
+5.  Test the hypothesis that the **association between becoming a parent and psychological distress is not the same for men and women**. You can add other variables to the model as you please. **You can use any package but plm is recommended.** Explain your **choices** and **how you have come to your conclusion** about the hypothesis.
 
 ```{r}
+#explore the dependent variables
+summary(is.na(nlsy18))
+#the variables highestgrade, poorhealth, and smoke have NAs (362, 6, 40)
 
+#make income easier to interpret by dividing it by 1000
+nlsy18$ghhinc10_<-nlsy18$ghhinc10_/1000
+
+#first build the baseline model
+m13<-plm(distress~parent+age+married+cocaine+arrest+crimd+injail+ghhinc10_+highestgrade+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18,
+         model="within")
+summary(m13)
+
+#model selection
+#exclude ghhinc10_
+m13<-plm(distress~parent+age+married+cocaine+arrest+crimd+injail+highestgrade+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18,
+         model="within")
+summary(m13)
+
+#exclude marriage
+m13<-plm(distress~parent+age+married+cocaine+arrest+crimd+injail+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18,
+         model="within")
+summary(m13)
+
+#exclude married (final model)
+m13<-plm(distress~parent+age+cocaine+arrest+crimd+injail+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18,
+         model="within")
+summary(m13)
 ```
 
-# Section C – Quasi-experimental designs
-
-## PART C1
-
-In observational studies, people who **commute to work by bicycle report better health than those who commute by car or public transport**. Some people claim this shows that **active travel has positive health effects. Others are sceptical about the strength of the evidence**. A researcher proposes to use **a recent Labour Force Survey (LFS) to examine the health effect of cycling to work**. The LFS consists of a representative sample of **employees and records their selfassessed health as well as information about commuting**. It also contains information about **the employer (through data linkage with HMRC, the tax office)**. One piece of information is whether the **company has voluntarily chosen to subscribe to the cycle-to-work scheme. Under this scheme employees can buy a new bicycle (for commuting purposes) using their pre-tax income**. This **means that employees get a 20-40% discount on the bike purchase (depending on which tax rate they pay)**.The government hopes to **incentivise more people to cycle by providing this tax break**.The researcher’s dataset LFS.Rdata (not included!) looks like this:
-
-1)  The researcher used LFS.RData and ran an OLS regression with pcs-health as the dependentvariable and a dummy-variable for commuting by bicycle as the independent variable. They alsoincluded age, gender, and company industry. Why might we worry about interpreting the coefficientof bike commuting as a causal effect?
-
-```{=html}
-<!-- -->
+```{r}
+#create two dummies for men and women
+nlsy18$men<-ifelse(nlsy18$male==1,1,0)
+nlsy18$women<-ifelse(nlsy18$male==0,1,0)
 ```
-2)  Next the researcher used the company’s participation in the cycle-to-work scheme as aninstrumental variable. What may have been their arguments for this IV?
 
-3)  They then ran a 2SLS instrumental variable model. Describe what the first stage of this 2SLs approach entails. What would you like the researcher to report about this stage? Explain why and how you would evaluate this stage.
+```{r}
+#test the interactions
+#for women
+m13a<-plm(distress~parent+age+cocaine+arrest+crimd+injail+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18%>%filter(women==1),
+         model="within")
+summary(m13a)
 
-4)  Describe what happens in the second stage. What would you like the researcher to report aboutthis stage? Why? How would you evaluate the results?
+#for men
+m13b<-plm(distress~parent+age+cocaine+arrest+crimd+injail+lwparents+poorhealth+smoke+urban,
+         index="caseid",
+         data=nlsy18%>%filter(men==1),
+         model="within") 
+summary(m13b)
 
-5)  Describe the four sub-populations of always takers, never takers, defiers, and compliers in thecontext of the resarcher’s approach.
+#using the heteroskedasticity-robust standard errors
+m13$vcov <- plm::vcovHC(m13, type = "HC1")
+m13a$vcov <- plm::vcovHC(m13a, type = "HC1")
+m13b$vcov <- plm::vcovHC(m13b, type = "HC1")
 
-6)  Are you convinced by this instrument? Explain.
+table14<-modelsummary::msummary(list("Model 13" = m13, "Model 13a (women)" = m13a,"Model 13b (men)"=m13b), 
+stars = TRUE, statistic = c("p.value", 
+        "std.error"))
+```
+
+```{r}
+#excluding all control variables for analysis
+#for women
+m13c<-plm(distress~parent,
+         index="caseid",
+         data=nlsy18%>%filter(women==1),
+         model="within")
+summary(m13c)
+
+#for men
+m13d<-plm(distress~parent,
+         index="caseid",
+         data=nlsy18%>%filter(men==1),
+         model="within") 
+summary(m13d)
+
+#using the heteroskedasticity-robust standard errors
+m13c$vcov <- plm::vcovHC(m13c, type = "HC1")
+m13d$vcov <- plm::vcovHC(m13d, type = "HC1")
+
+
+table15<-modelsummary::msummary(list("Model 13c (women)" = m13c, "Model 13d (men)" = m13d), 
+stars = TRUE, statistic = c("p.value", 
+        "std.error"))
+```
+
+To test this hypothesis, we will use the plm package with the heteroskedasticity-robust standard errors adjusting for clusters as plm is as it is one of the most used packages, and the se chosen can efficiently deal with autocorrelation and heteroskedasticity in the data.
+
+The model selection procedure is backward elimination. We first include all possible independent variables in the model and drop the most insignificant variable to check the model fit results step-by-step. The final model (model 13) has variables that significantly contribute to the prediction of the dependent variable. To test the interaction effects of gender and becoming a parent on psychological distress, we analyze males and females separately (model 13a, model 13b). The results suggest that the effect of parenthood can reduce the probability of distress for females (-0.014) but increase the probability for males (0.045). However, the coefficients for both genders are not significant.
+
+Accounting for males and females may self-select into some control variables we include; for instance, males are more likely to be arrested or committed a crime since last year; we also analyze model 12 by gender separately, excluding all control variables (model 13c, model 13d). The results show that women are more likely to feel less distressed because of parenthood (-0.429) than males (-0.205). A simple z-test shows that the difference between men and women, when we do not control for other variables, has a p-value smaller than 0.01.
+
+To conclude, when we only consider whether the effect of parenthood on reducing depression depends on whether the individual being observed is male or female, then the effect is stronger in females. However, when we control for other factors (crime, cocaine use, etc.), the gender difference diminishes, probably because males and females are more likely to self-select into some cohorts.
+
+```{r}
+rm(nlsy18,nlsy1,vcov,is.num,changedid,dat,dat2,dat3)
+```
+
+# Section C – Quasi-experimental designsdesigns
 
 ## PART C2
 
 We are interested in the **effect on hourly wages of doing a company internship as part of a vocational college degree program**. We have information on more than **700 former pupils** from **three cohorts of a vocational college**. Comparing the wages of those who did and did not do an internship might give us biased results because **other factors may influence both doing an internship and getting higher wages. Motivation and social skills, for example, could be (unobserved) factors that could increase wages and make an internship more likely**. Because of the high demand for internships and a shortage of company placements, **pupils had to achieve a gpa of at least 70 in the first years to enter the intership programme in year 3. This rule might enable to use a regression discontinuity design to estimate the effect of doing an internship**. Using the above information and the data, answer the following questions:
 
-1.  What kind of RDD can we run in this case, Sharp or Fuzzy? Explain the difference between thetwo and show what information you used to decide between them in this case.
-2.  Is there evidence of manipulation? Explain how you have investigated this.
-3.  Run an RDD model. Explain your approach and present the results. To what extent does your conclusion depend on your choices about the model and the bandwidth? Explain your choicesand discuss your conclusions.
+What kind of RDD can we run in this case, **Sharp or Fuzzy?** Explain the **difference between the two** and show **what information you used to decide between them in this case**.
+
+```{r}
+#explore the data
+summary(intern)
+table(is.na(intern))
+
+```
+
+```{r}
+#check fuzzy or sharp 
+dat<-as.data.frame(intern%>%
+        dplyr::group_by(intern,gpa>=70)%>%
+        dplyr::summarise(count=n()))
+
+table15<-kbl(dat)%>%
+kable_classic(full_width = F, html_font = "Cambria")
+```
+
+The kind of RDD we run in this case is the Sharp design, as the treatment of participation in the internship is only assigned to those students who have achieved 70 or higher in their GPA, and there is no one who has GPA lower than that value have experience internships in the data (no non-compliers).
+
+The difference between the sharp and fuzzy design is that in sharp design no one receives the treatment below the threshold value (in this case gpa \<70), and for those above the threshold value everyone receives the treatment (in this case gpa \>=70).
+
+In contrast, in the fuzzy design people are only more likely to receive the treatment after the threshold values, those who are below the threshold can sometimes also receive the treatment, though more unlikely. In other words, the threshold value is not a strong predictor of treatment compared with the thresholds in sharp design.
+
+Is there **evidence of manipulation?** Explain **how you have investigated this**.\
+
+```{r}
+#is there manipulation:using the McCrary test for testing manipulation
+gpa_density <- rddensity(intern$gpa, c = 70)
+summary(gpa_density)
+
+#plot the density test
+figure6<-plot_density_test <- rdplotdensity(rdd = gpa_density,
+                                   X = intern$gpa,
+                                   type = "both")
+```
+
+We use the McCrary test in the rddensity package to test for manipulation. As seen in the plotted density test (Figure 6), the confidence intervals of those who just fall below the threshold (GPA \<70) and those above the threshold (GPA\>70) do overlap. Thus, we conclude that it is hardly possible for students to deliberately manipulate and go in or out of the internship program in the data.
+
+**Run an RDD model**. Explain your **approach** and present the **results**. To what extent does your conclusion depend on your choices about the **model** and the **bandwidth**? Explain your choices and discuss your conclusions
+
+```{r}
+#is there discontinuity in the outcome
+figure7<-ggplot(intern,aes(x=gpa,y=hrwage,color=as.factor(intern)))+geom_point(size=0,alpha=0)+geom_smooth(data=filter(intern,gpa>=70),method = "lm")+geom_smooth(data=filter(intern,gpa<70),method = "lm")+geom_vline(xintercept=70)+labs(x="GPA",y="Hourly Wages",color="Intern")
+```
+
+```{r}
+#check if all covariates are continuous at the treatment x
+#namely no jumps at gpa >=70 at any other variables, only for intern and hrwage
+
+#cohort
+dat<-as.data.frame(intern%>%
+        dplyr::group_by(cohort,gpa>=70)%>%
+        dplyr::summarise(count=n()))
+prop.table(dat$count)
+
+
+#male:a relatively big jump at the threshold for students' sex
+#there are considerably more females after the threshold, but there are still some overlaps in the confidence interval
+figure8<-ggplot(intern,aes(x=gpa,y=male))+geom_point(size=0,alpha=0)+geom_smooth(data=filter(intern,gpa>=70),method = "glm", method.args = list(family = "binomial"))+geom_smooth(data=filter(intern,gpa<70),method = "glm", method.args = list(family = "binomial"))+geom_vline(xintercept=70)+labs(x="GPA",y="Student's Sex")
+
+
+
+#sei: a little jump at the threshold 
+ggplot(intern,aes(x=gpa,y=sei))+geom_point(size=0,alpha=0)+geom_smooth(data=filter(intern,gpa>=70),method = "lm")+geom_smooth(data=filter(intern,gpa<70),method = "lm")+geom_vline(xintercept=70)+labs(x="GPA",y="Student's SES at time of admission")
+```
+
+For the model assumptions testing, Figure 7 shows there is a significant discontinuity in the outcome. It should be noted that the treatment variable (intern) and the threshold (GPA \>=70) are aligned in the sharp design in this case.
+
+We have also checked if all covariates defined are continuous at treatment x; the results show that the biggest jump in the covariate is students' sex. Figure 8 indicates that there are more male students after the threshold (GPA=70). However, there are still some overlaps in the confidence interval of students' sex around the threshold, so we continue the RDD analysis.
+
+```{r}
+#how big is the gap
+#first center the gpa around the cutoff
+intern<-intern%>%dplyr::mutate(gpa_centered=gpa-70)
+
+m14<-lm(hrwage~gpa_centered+intern+factor(cohort)+male+sei,data=intern)
+summary(m14)
+```
+
+```{r}
+#using different bandwidths
+#bandwidth=10
+m14a<-lm(hrwage~gpa_centered+intern+factor(cohort)+male+sei,data=dplyr::filter(intern,gpa_centered>=-10 & gpa_centered<=10))
+summary(m14a)
+
+#bandwidth=5
+m14b<-lm(hrwage~gpa_centered+intern+factor(cohort)+male+sei,data=dplyr::filter(intern,gpa_centered>=-5 & gpa_centered<=5))
+summary(m14b)
+
+```
+
+```{r}
+#how big is the gap (non-parametric)
+m15<-rdrobust(y=intern$hrwage,x=intern$gpa,covs = intern$male+intern$sei+intern$cohort,c=70)
+
+
+```
+
+```{r}
+#make a model list summary
+table16<-modelsummary(list("Full data (Model 14)"=m14, "Bandwidth=10 (Model 14a)"=m14a,"Bandwidth=5 (Model 14b)"=m14b),stars = T)
+
+```
+
+To check how big is the gap around the threshold, we first use the parametric method to analyze the causal effect of participating in the internship (gpa \>=70) for the students' hourly wages two years after college, with relevant control variables.
+
+For easier interpretation, we first code a new variable, gpa_centered, to centre the students' GPA around the threshold.
+
+The regressed results of the full model (model 14 in Table 16) shows that when using the gpa as an instrument, we see students who have participated in the internship receive an hour wage 3.16 constant Euros higher compared with other students two years after graduation. 
+
+When choosing different bandwidths to better mimic an experiment, the effect of internship is 1.69\*\*\* when bandwidth equals to 10 (model 14a in Table 16), and to make the argument more convincingly, the effect of internship remains significant at the value of 2.34\*\*\* when bandwidth is equal to 5 (model 14b in Table 16).
+
+We should know that when bandwidth is narrower, whether receiving the treatment of internship is more random for the students, as it's hard for students to manipulate their scores to fall just beyond or below the threshold to receive the treatment or not. 
+
+Consequently, when using the narrower bandwidths, the results generated by the RDD approach will be more approximate to an experiment.
+
+In addition, we should be careful in interpreting the effect of internship as a local average treatment effect in this case because we only study the treatment effects on students who fall within the bandwidths around the threshold (gpa=70). 
+
+Apart from the parametric method, we also use the non-parametric approach to determine the algorithm's shape based on the data. The results show that the effect of internship remains significant (2.29\*\*\*). The kernel used is the triangular to weigh more distant data with less linearity. It should be noted that the covariate of the students' cohort is fitted as a numeric value in this case.
+
+In conclusion, we can state that there is a relatively strong local average treatment effect of internship on students' increased hourly wage after graduation in the data. 
