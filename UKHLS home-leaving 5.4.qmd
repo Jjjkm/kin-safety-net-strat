@@ -4032,6 +4032,122 @@ indresp$large_hh<-factor(indresp$large_hh,levels=c(0,1),labels=c("small hh","lar
 #child level
 
 #level of education completed
+indresp$edu<-c(0)
+indresp$edu[indresp$hiqual_dv%in%c(9)]<-1 #low (everything below)
+indresp$edu[indresp$hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
+indresp$edu[indresp$hiqual_dv%in%c(1,2)]<-3 #high (have a degree)
+indresp$edu[indresp$edu==0]<-NA
+
+print(attr(indresp$hiqual_dv,"labels"))
+indresp$edu<-factor(indresp$edu,levels=c(1,2,3),labels=c('low',"middle","high"))
+
+#two-category education
+indresp$edu2<-c(0)
+indresp$edu2[indresp$hiqual_dv%in%c(1,2)]<-1 #high (have a degree)
+indresp$edu2[is.na(indresp$hiqual_dv)]<-NA
+
+#family structure
+indresp$family_status<-c(0)
+#coresident partner and child
+indresp$family_status[indresp$childnum>=1 & indresp$live_with_husbandwife>=1]<-1
+indresp$family_status[indresp$childnum>=1 & indresp$live_with_cohabitee>=1]<-1
+#coresident partner
+indresp$family_status[indresp$live_with_cohabitee>=1 &indresp$childnum==0]<-2
+indresp$family_status[indresp$live_with_husbandwife>=1 &indresp$childnum==0]<-2
+indresp$family_status[indresp$live_with_cohabitee>=1 &is.na(indresp$childnum)]<-2
+indresp$family_status[indresp$live_with_husbandwife>=1 &is.na(indresp$childnum)]<-2
+
+#coresident child
+indresp$family_status[indresp$childnum>=1 &indresp$live_with_husbandwife==0 & indresp$live_with_cohabitee==0]<-3
+indresp$family_status[indresp$childnum>=1 &is.na(indresp$live_with_husbandwife)& indresp$live_with_cohabitee==0]<-3
+indresp$family_status[indresp$childnum>=1 &indresp$live_with_husbandwife==0 & is.na(indresp$live_with_cohabitee)]<-3
+indresp$family_status[indresp$childnum>=1 &is.na(indresp$live_with_husbandwife) & is.na(indresp$live_with_cohabitee)]<-3
+
+#no coresident partner or child=0
+
+indresp$family_status<-factor(indresp$family_status,levels=c(0,1,2,3),labels=c("No coresident partner or child","coresident partner and child","coresident partner","coresident child"))
+
+#age centered
+indresp$age_centered<-indresp$age_dv-mean(indresp$age_dv)
+#age squared
+indresp$age_sq<-indresp$age_centered**2
+
+
+#logarithm of income
+indresp$fimnnet_dv[indresp$fimnnet_dv<0]<-0
+#add 1 to all income values to avoid -inf in log transformation
+indresp$incomeadd<-indresp$fimnnet_dv+1
+indresp$lnincome<-log(indresp$incomeadd)
+indresp<-indresp%>%dplyr::select(-incomeadd)
+
+
+#racel groups 
+indresp$racel<-c(0)
+indresp$racel[indresp$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indresp$racel[indresp$racel_dv%in%c(14,15)]<-2 #African Caribbean
+indresp$racel[indresp$racel_dv%in%c(9,10,11)]<-3 #Indiani,Pakistani, Bangladeshi
+indresp$racel[indresp$racel_dv%in%c(12,13)]<-4 #Other Asian
+indresp$racel[indresp$racel==0]<-5 #Other
+
+indresp$racel<-factor(indresp$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
+
+indresp$racel[is.na(indresp$racel_dv)]<-NA
+
+##two-categories
+indresp$racel2<-c(0)
+indresp$racel2[indresp$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indresp$racel2[!(indresp$racel_dv%in%c(1,2,3,4))]<-2 #non-Whites
+indresp$racel2[is.na(indresp$racel_dv)]<-NA
+
+indresp$racel2<-factor(indresp$racel2,levels=c(1,2),labels=c("Whites","non-Whites"))
+
+#education status
+indresp$student<-c(0)
+indresp$student[indresp$jbstat%in%c(7)]<-1 #full-time student
+
+
+#employment status
+indresp$unemployed<-c(0)
+indresp$unemployed[indresp$jbstat%in%c(3)]<-1 
+indresp$unemployed[is.na(indresp$jbstat)]<-NA
+
+#housing prices
+indresp$houseprices<-c(0)
+indresp$houseprices[indresp$gor_dv%in%c(1,10,11,12)]<-1 #low
+indresp$houseprices[indresp$gor_dv%in%c(2,3,4,5)]<-2 #middle
+indresp$houseprices[indresp$gor_dv%in%c(6,7,8,9)]<-3 #high
+indresp$houseprices[is.na(indresp$gor_dv)]<-NA
+
+indresp$houseprices<-factor(indresp$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+
+#urban,sex binary
+indresp$sex<-c(0)
+indresp$sex[indresp$sex_dv==2]<-1 #females
+indresp$sex[is.na(indresp$sex_dv)]<-NA
+
+indresp$urban<-c(0)
+indresp$urban[indresp$urban_dv==1]<-1 #urban areas
+indresp$urban[is.na(indresp$urban_dv)]<-NA
+
+indresp<-indresp%>%mutate(health=coalesce(sf1,scsf1))
+
+#living with both biological parents
+indresp$liveboth<-c(0)
+indresp$liveboth[indresp$lvpa=="live with both parents"]<-1
+indresp$liveboth[is.na(indresp$lvpa)]<-NA
+
+#relative num for family structure
+indresp$large_hh<-c(0)
+indresp$large_hh[indresp$relativenum>=2]<-1
+indresp$large_hh<-factor(indresp$large_hh,levels=c(0,1),labels=c("small hh","large hh"))
+
+
+```
+
+```{r}
+#child level
+
+#level of education completed
 indrespb$edu<-c(0)
 indrespb$edu[indrespb$hiqual_dv%in%c(9)]<-1 #low (everything below)
 indrespb$edu[indrespb$hiqual_dv%in%c(3,4,5)]<-2 #middle (completed A-level or secondary high school)
@@ -4063,15 +4179,82 @@ indrespb$family_status[indrespb$childnum>=1 &is.na(indrespb$live_with_husbandwif
 indrespb$family_status[indrespb$childnum>=1 &indrespb$live_with_husbandwife==0 & is.na(indrespb$live_with_cohabitee)]<-3
 indrespb$family_status[indrespb$childnum>=1 &is.na(indrespb$live_with_husbandwife) & is.na(indrespb$live_with_cohabitee)]<-3
 
+#no coresident partner or child=0
+
+indrespb$family_status<-factor(indrespb$family_status,levels=c(0,1,2,3),labels=c("No coresident partner or child","coresident partner and child","coresident partner","coresident child"))
+
+#age centered
+indrespb$age_centered<-indrespb$age_dv-mean(indrespb$age_dv)
+#age squared
+indrespb$age_sq<-indrespb$age_centered**2
+
+
+#logarithm of income
+indrespb$fimnnet_dv[indrespb$fimnnet_dv<0]<-0
+#add 1 to all income values to avoid -inf in log transformation
+indrespb$incomeadd<-indrespb$fimnnet_dv+1
+indrespb$lnincome<-log(indrespb$incomeadd)
+indrespb<-indrespb%>%dplyr::select(-incomeadd)
+
+
+#racel groups 
+indrespb$racel<-c(0)
+indrespb$racel[indrespb$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indrespb$racel[indrespb$racel_dv%in%c(14,15)]<-2 #African Caribbean
+indrespb$racel[indrespb$racel_dv%in%c(9,10,11)]<-3 #Indiani,Pakistani, Bangladeshi
+indrespb$racel[indrespb$racel_dv%in%c(12,13)]<-4 #Other Asian
+indrespb$racel[indrespb$racel==0]<-5 #Other
+
+indrespb$racel<-factor(indrespb$racel,levels=c(1,2,3,4,5),labels=c("Whites","African Caribbean","Indiani,Pakistani, Bangladeshi","Other Asian","Other"))
+
+indrespb$racel[is.na(indrespb$racel_dv)]<-NA
+
+##two-categories
+indrespb$racel2<-c(0)
+indrespb$racel2[indrespb$racel_dv%in%c(1,2,3,4)]<-1 #Whites
+indrespb$racel2[!(indrespb$racel_dv%in%c(1,2,3,4))]<-2 #non-Whites
+indrespb$racel2[is.na(indrespb$racel_dv)]<-NA
+
+indrespb$racel2<-factor(indrespb$racel2,levels=c(1,2),labels=c("Whites","non-Whites"))
+
+#education status
+indrespb$student<-c(0)
+indrespb$student[indrespb$jbstat%in%c(7)]<-1 #full-time student
+
+#employment status
+indrespb$unemployed<-c(0)
+indrespb$unemployed[indrespb$jbstat%in%c(3)]<-1 
+indrespb$unemployed[is.na(indrespb$jbstat)]<-NA
 
 #housing prices
-test1$houseprices<-c(0)
-test1$houseprices[test1$gor_dv%in%c(1,10,11,12)]<-1 #low
-test1$houseprices[test1$gor_dv%in%c(2,3,4,5)]<-2 #middle
-test1$houseprices[test1$gor_dv%in%c(6,7,8,9)]<-3 #high
-test1$houseprices[is.na(test1$gor_dv)]<-NA
+indrespb$houseprices<-c(0)
+indrespb$houseprices[indrespb$gor_dv%in%c(1,10,11,12)]<-1 #low
+indrespb$houseprices[indrespb$gor_dv%in%c(2,3,4,5)]<-2 #middle
+indrespb$houseprices[indrespb$gor_dv%in%c(6,7,8,9)]<-3 #high
+indrespb$houseprices[is.na(indrespb$gor_dv)]<-NA
 
-test1$houseprices<-factor(test1$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+indrespb$houseprices<-factor(indrespb$houseprices,levels=c(1,2,3),labels=c("low","middle","high"))
+
+#urban,sex binary
+indrespb$sex<-c(0)
+indrespb$sex[indrespb$sex_dv==2]<-1 #females
+indrespb$sex[is.na(indrespb$sex_dv)]<-NA
+
+indrespb$urban<-c(0)
+indrespb$urban[indrespb$urban_dv==1]<-1 #urban areas
+indrespb$urban[is.na(indrespb$urban_dv)]<-NA
+
+indrespb<-indrespb%>%mutate(health=coalesce(sf1,scsf1))
+
+#living with both biological parents
+indrespb$liveboth<-c(0)
+indrespb$liveboth[indrespb$lvpa=="live with both parents"]<-1
+indrespb$liveboth[is.na(indrespb$lvpa)]<-NA
+
+#relative num for family structure
+indrespb$large_hh<-c(0)
+indrespb$large_hh[indrespb$relativenum>=2]<-1
+indrespb$large_hh<-factor(indrespb$large_hh,levels=c(0,1),labels=c("small hh","large hh"))
 
 ```
 
