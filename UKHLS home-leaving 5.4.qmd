@@ -4416,7 +4416,13 @@ indrespa$parent_edu2[is.na(indrespa$parentedu)]<-NA
 
 indrespa<-indrespa%>%dplyr::select(-parentedu)
 
-test1<-test1%>%mutate(health_self=coalesce(sf1, scsf1))
+#general health of parents**
+indrespa<-indrespa%>%mutate(health_father=coalesce(ip_sf1, ip_scsf1))
+indrespa<-indrespa%>%mutate(health_mother=coalesce(im_sf1, im_scsf1))
+#least healthy parent
+indrespa<-transform(indrespa, parenthealth = pmax(health_father, health_mother))
+indrespa$parenthealth<-ifelse(is.na(indrespa$parenthealth), indrespa$health_father, indrespa$parenthealth)
+indrespa$parenthealth<-ifelse(is.na(indrespa$parenthealth), indrespa$health_mother, indrespa$parenthealth)
 
 #parent's age (youngest)
 indrespa <- transform(indrespa, parentage = pmin(ip_age_dv
@@ -4442,10 +4448,10 @@ indrespa$paincome<-ifelse(is.na(indrespa$paincome), indrespa$im_fimnnet_dv, indr
 
 print(quantile(indrespa$paincome, probs = c(0,0.25,0.5,0.75,1),na.rm=T))
 indrespa$paincomeq<-c(0)
-indrespa$paincomeq[indrespa$paincome<1206.315]<-1
-indrespa$paincomeq[indrespa$paincome>=1206.315 & indrespa$paincome<1946.545]<-2
-indrespa$paincomeq[indrespa$paincome>=1946.545  & indrespa$paincome<3044.560]<-3
-indrespa$paincomeq[indrespa$paincome>=3044.560]<-4
+indrespa$paincomeq[indrespa$paincome<1246.52 ]<-1
+indrespa$paincomeq[indrespa$paincome>=1246.52  & indrespa$paincome<2010.00]<-2
+indrespa$paincomeq[indrespa$paincome>=2010.00  & indrespa$paincome<3175.83]<-3
+indrespa$paincomeq[indrespa$paincome>=3175.83]<-4
 indrespa$paincomeq[indrespa$paincomeq==0]<-NA
 
 
@@ -4556,10 +4562,10 @@ indrespb$paincome<-ifelse(is.na(indrespb$paincome), indrespb$im_fimnnet_dv, indr
 
 print(quantile(indrespb$paincome, probs = c(0,0.25,0.5,0.75,1),na.rm=T))
 indrespb$paincomeq<-c(0)
-indrespb$paincomeq[indrespb$paincome< 1342.265 ]<-1
-indrespb$paincomeq[indrespb$paincome>= 1342.265 & indrespb$paincome<2184.560 ]<-2
-indrespb$paincomeq[indrespb$paincome>=2184.560  & indrespb$paincome<3485.370]<-3
-indrespb$paincomeq[indrespb$paincome>=3485.370]<-4
+indrespb$paincomeq[indrespb$paincome<1246.52 ]<-1
+indrespb$paincomeq[indrespb$paincome>=1246.52  & indrespb$paincome<2010.00]<-2
+indrespb$paincomeq[indrespb$paincome>=2010.00  & indrespb$paincome<3175.83]<-3
+indrespb$paincomeq[indrespb$paincome>=3175.83]<-4
 indrespb$paincomeq[indrespb$paincomeq==0]<-NA
 
 
@@ -4593,6 +4599,7 @@ indrespb$housing_tenure[indrespb$housing_tenure==0]<-NA
 indrespb$housing_tenure<-factor(indrespb$housing_tenure,levels=c(1,2,3),labels=c("ownership","social rent","private rent n other"))
 
 indrespb<-indrespb%>%dplyr::select(-housingtenure)
+
 ```
 
 ```{r}
